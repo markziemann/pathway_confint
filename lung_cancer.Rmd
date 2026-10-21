@@ -1,0 +1,482 @@
+---
+title: "Workshop6 lung cancer RNA-seq"
+author: "Mark Ziemann"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    fig_width: 7
+    fig_height: 7
+theme: cosmo
+---
+
+Source: https://github.com/markziemann/bioinformatics_intro_workshop
+
+## Introduction
+
+In this workshop, we will start working on some RNA-seq data. Here is the citation:
+
+Cho JW, Shim HS, Lee CY, Park SY et al. The importance of enhancer methylation for epigenetic regulation of tumorigenesis in squamous lung cancer. Exp Mol Med 2022 Jan;54(1):12-22. PMID: 34987166
+
+```{r setup}
+
+# install CRAN packages
+#install.packages(c("kableExtra","gplots"))
+
+# install bioconductor packages
+#if (!require("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+#BiocManager::install(c("DESeq2","fgsea"))
+
+suppressPackageStartupMessages({
+  library("kableExtra")
+  library("DESeq2")
+  library("gplots")
+  library("fgsea")
+  library("beeswarm")
+})
+
+```
+
+## Download gene expression counts and read the file
+
+Download from NCBI.
+
+```{r,dl}
+
+DATA="GSE158420.counts.txt.gz"
+
+if ( ! file.exists(DATA) ) {
+  download.file("https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE158420&format=file&file=GSE158420%5Fcounts%2Etxt%2Egz",
+    destfile=DATA)
+}
+
+```
+
+Read data.
+Note that there are a couple of duplicated gene symbols.
+Here I use `aggregate()` command to deal with them.
+
+```{r,read_data}
+
+mx <- read.table(DATA,row.names = NULL)
+str(mx)
+which(duplicated(mx$row.names))
+xa <- aggregate(. ~ row.names,mx,sum)
+rownames(xa) <- xa$row.names
+str(xa)
+xa$row.names = NULL
+
+head(xa)
+
+```
+
+## Basic QC - number of reads per sample
+
+Less than 10 million is not acceptable. More than 20 million is considered good.
+
+```{r,sample_count_qc,fig.width=5,fig.height=5}
+
+mycolsums <- colSums(xa)
+
+mycolsums
+summary(mycolsums)
+mycolsums <- sort(mycolsums)
+head(mycolsums,10)
+tail(mycolsums,10)
+barplot(mycolsums)
+
+
+barplot(head(mycolsums))
+
+```
+
+# Does this dataset need filtering of lowly expressed genes?
+
+There are ~60k genes in the main annotation sets.
+We can count the number of rows to see how many genes included in this dataset.
+
+I also run my own threshold, which is average of 10 reads per sample.
+
+```{r,lowgenes}
+
+dim(xa)
+hist(rowMeans(xa))
+table(rowMeans(xa)>=10)
+
+xf <- xa[which(rowMeans(xa)>=10),]
+dim(xa)
+dim(xf)
+
+```
+
+# Principal component analysis
+
+Use PCA to understand the overall variation between samples in the dataset.
+
+```{r,pca1,fig.height=7}
+
+mds <- cmdscale(dist(t(scale(xf))),k=10)
+barplot(colSums(abs(mds)),names.arg = 1:10)
+
+head(mds)
+
+plot(mds[,1:2],pch=19,col="gray",
+     main="Dim 1 and 2",xlab="PCA1",ylab="PCA2")
+text(mds[,1],mds[,2],labels = colnames(xf))
+
+plot(mds[,c(1,3)],pch=19,col="gray",
+      main="Dim 1 and 3",xlab="PCA1",ylab="PCA3")
+text(mds[,1],mds[,3],labels = colnames(xf))
+
+plot(mds[,2:3],pch=19,col="gray",
+      main="Dim 2 and 3",xlab="PCA2",ylab="PCA3")
+text(mds[,2],mds[,3],labels = colnames(xf))
+
+```
+
+# Curate samplesheet
+
+The samplesheet is the sample level metadata, which we need for the differential expression step.
+
+```{r,ss}
+
+ss <- as.data.frame(colnames(xa))
+head(ss)
+
+ss$tumor <- as.numeric(grepl("T",ss[,1]))
+
+ss$patient <- gsub("T","" , gsub("N","",ss[,1]))
+
+rownames(ss) <- ss[,1]
+
+head(ss)
+
+```
+
+## DE
+
+We will use DESeq2 for differential expression.
+
+```{r,de1}
+
+dds <- DESeqDataSetFromMatrix(countData = xf , colData=ss, design = ~ patient + tumor)
+res <- DESeq(dds)
+z <- results(res)
+vsd <- vst(dds, blind=FALSE)
+zz <- cbind(as.data.frame(z),assay(vsd))
+dge <- as.data.frame(zz[order(zz$pvalue),])
+
+head(dge) |> kbl(caption="Top significant genes") |> kable_paper("hover", full_width = F)
+
+```
+
+## Heatmap visualisation
+
+Heatmaps are great for showing high dimensional data.
+
+```{r,hm1}
+
+topgenes <- head(rownames(dge),50)
+
+colfunc <- colorRampPalette(c("blue", "white", "red"))
+
+rpm <- apply(xf,2,function(x) {x/sum(x) * 1e6 } )
+
+top <- rpm[which(rownames(rpm) %in% topgenes),]
+
+csc = as.character(ss$tumor)
+
+heatmap.2(as.matrix(top),trace="none",col=colfunc(25),scale="row",
+    margins = c(6,6), cexRow=0.6, cexCol=0.3, ColSideColors=csc )
+
+```
+
+You may want to look at a few genes in more detail.
+
+```{r,bs1}
+
+set.seed(42)
+myrows <- sample(1:nrow(top),6)
+
+par(mfrow=c(2,3))
+
+nullplot <- lapply(myrows,function(i) {
+  nam=rownames(top)[i]
+  gdata <- top[i,]
+  ndat <- gdata[grep("N",names(gdata))]
+  tdat <- gdata[grep("T",names(gdata))]
+  plotdat <- list("non-tumor"=ndat,"tumor"=tdat)
+  boxplot(plotdat,ylab="normalised expression (RPM)",cex=0,col="white",main=nam)
+    beeswarm(plotdat,add=TRUE,cex=0.9,pch=19)
+})
+
+par(mfrow=c(1,1))
+
+```
+
+## Pathway enrichment analysis
+
+Here, we'll use the fgsea package on Reactome pathways.
+
+```{r,fgsea1}
+
+#GMT="ReactomePathways_2025-10-15.gmt"
+GMT="ReactomePathways_2025-03-14.gmt"
+
+gs <- gmtPathways(GMT)
+head(gs,3)
+
+dge$stat[which(is.na(dge$stat))] <- 0 # substitute 0 for NA vals
+
+stat <- dge$stat #use DESeq2 test stat for ranking genes
+names(stat) <- rownames(dge) #attach gene names to values
+
+fres <- fgsea(pathways=gs,stats=stat,minSize=5, nproc=4) #run fgsea
+
+fsig <- subset(fres,padj<0.05) # subset significant sets
+nrow(fsig)
+
+fres <- fres[order(-abs(fres$ES)),]
+
+head(subset(fres,padj<0.05 & ES>0),20) %>%
+  kbl(caption="mRNA upregulated pathways") %>%
+  kable_styling("hover",full_width=FALSE)
+
+head(subset(fres,padj<0.05 & ES<0),20) %>%
+  kbl(caption="mRNA downregulated pathways") %>%
+  kable_styling("hover",full_width=FALSE)
+
+NRES=nrow(fres)
+NSIG=nrow(fsig)
+NUP=nrow(subset(fsig,ES>0))
+NDN=nrow(subset(fsig,ES<0))
+HEADER=paste(NRES,"pathways,",NSIG,"with FDR<0.05,",NUP,"up and",NDN,"down")
+
+plot(fres$ES,-log10(fres$pval),pch=19,cex=0.6,col="gray",
+  xlab="ES",ylab="-log10 p-value",main="FGSEA")
+points(fsig$ES,-log10(fsig$pval),cex=0.6,col="red",pch=19)
+mtext(HEADER)
+
+```
+
+## Topconfects
+
+```{r,topconfects}
+
+library("topconfects")
+
+dds2 <- DESeq(dds)
+dconfects <- deseq2_confects(dds2, step=0.05)
+head(dconfects$table,20)
+dct <- dconfects$table
+
+```
+
+## Pathway analysis with mitch
+
+```{r,mitch_ci}
+
+library("mitch")
+m <- mitch_import(x=dge,DEtype="DESeq2")
+head(m)
+mres <- mitch_calc(m,genesets=gs,minsetsize=5,cores=8,priority="effect")
+head(mres$enrichment_result)
+
+gs_gnames <- gs[names(gs) == "Unwinding of DNA"]
+gsgenes <- gs_gnames[[1]]
+
+dct[which(dct$name %in% gsgenes),]
+
+lrpm <- log10(rpm+1)
+
+lrpm_gs <- lrpm[which(rownames(lrpm) %in% gsgenes),]
+
+lrpm_ctrl <- lrpm_gs[,which(ss$tumor==0)]
+lrpm_tmr <- lrpm_gs[,which(ss$tumor==1)]
+
+i=1
+
+geneid <- gsgenes[i]
+
+ctrl <- lrpm_ctrl[i,]
+tmr <- lrpm_tmr[i,]
+mylist <- list("ctrl"=ctrl,"tmr"=tmr)
+boxplot(mylist,col="white",cex=0,main=geneid)
+beeswarm(mylist,add=TRUE,pch=19,col="gray",cex=1.5)
+
+```
+
+## Rank based pathway score
+
+```{r,rbps}
+
+dim(xf)
+rxf <- apply(xf,2,rank)
+rxf[1:6,1:5]
+
+i=1
+
+wtres <- lapply(1:nrow(mres$enrichment_result), function(i) {
+  mygsname <- mres$enrichment_result$set[i]
+  mygenes <- gs[[which(names(gs) == mygsname)]]
+  ngenes <- length(mygenes)
+  gscs <- colSums(rxf[which(rownames(rxf) %in% mygenes),]) / ngenes
+  ctl <- gscs[which(ss$tumor==0)]
+  tmr <- gscs[which(ss$tumor==1)]
+  mylist <- list("ctl"=ctl,"tmr"=tmr)
+  #boxplot(mylist,col="white",cex=0,main=mygsname)
+  #beeswarm(mylist,add=TRUE,pch=19,col="gray",cex=1.5)
+  wt <- wilcox.test(tmr,ctl)
+  output <- c("wstat"=unname(wt$statistic),"wp"=wt$p.value)
+  return(output)
+})
+
+wtres <- as.data.frame(do.call(rbind,wtres))
+wtres$fdr <- p.adjust(wtres$wp,method="fdr")
+#wtres$set <- mres$enrichment_result$set
+
+allres <- data.frame(mres$enrichment_result,wtres)
+
+head(allres,20) |> kbl(caption="RBPS comparison") |> kable_paper("hover", full_width = F)
+
+par(mfrow=c(3,3))
+
+wtres <- lapply(1:9, function(i) {
+  mygsname <- mres$enrichment_result$set[i]
+  mygenes <- gs[[which(names(gs) == mygsname)]]
+  ngenes <- length(mygenes)
+  gscs <- colSums(rxf[which(rownames(rxf) %in% mygenes),]) / ngenes
+  ctl <- gscs[which(ss$tumor==0)]
+  tmr <- gscs[which(ss$tumor==1)]
+  mylist <- list("ctl"=ctl,"tmr"=tmr)
+  wt <- wilcox.test(tmr,ctl)
+  HEADER=paste("Stat:",unname(wt$statistic),"pval",signif(wt$p.value,3))
+  boxplot(mylist,col="white",cex=0,main=mygsname)
+  beeswarm(mylist,add=TRUE,pch=19,col="darkgray",cex=0.8)
+  mtext(HEADER)
+})
+
+```
+
+## Rankdiff compared to log2FC
+
+log2fc is more impacted by huge outliers.
+
+This is requried to model the relationship between the two so we can estimate the 95% confident effect in terms of log2FC.
+
+```{r,rankdiff}
+
+dim(rpm)
+dim(xf)
+rpm_t <- rpm[,which(ss$tumor==1)]
+rpm_c <- rpm[,which(ss$tumor==0)]
+rank_c <- apply(rpm_c,2,rank)
+rank_t <- apply(rpm_t,2,rank)
+
+log2fc <- log2( rowMeans(rpm_t) / rowMeans(rpm_c) )
+rankdiff <- rowMeans(rank_t) - rowMeans(rank_c)
+
+hist( log2fc )
+hist( rankdiff )
+
+mylm <- lm(log2fc ~ rankdiff)
+plot(rankdiff,log2fc)
+abline(v=0,h=0,lty=2)
+abline(mylm,col="red",lty=2)
+
+rdfc <- data.frame(rankdiff,log2fc)
+
+subset(rdfc, rankdiff < -2000 & log2fc > 3)
+
+plot(rankdiff,log2fc)
+abline(v=0,h=0,lty=2)
+abline(mylm,col="red",lty=2)
+abline(v=-2000,h=3,col="blue",lty=2)
+
+```
+
+Scale down to n=6.
+
+original is n=37.
+
+```{r,scaledown}
+
+samplesize = 10
+sz <- samplesize * 2
+
+ss6 <- head(ss,sz)
+xa6 <- xa[,1:sz]
+xf6 <- xa6[which(rowMeans(xa6) >= 10),]
+rxf6 <- apply(xf6,2,rank)
+
+dds <- DESeqDataSetFromMatrix(countData = xf6 , colData=ss6, design = ~ patient + tumor)
+res <- DESeq(dds)
+z <- results(res)
+vsd <- vst(dds, blind=FALSE)
+zz <- cbind(as.data.frame(z),assay(vsd))
+dge6 <- as.data.frame(zz[order(zz$pvalue),])
+
+m6 <- mitch_import(x=dge6,DEtype="DESeq2")
+mres6 <- mitch_calc(m6,genesets=gs,minsetsize=5,cores=8,priority="effect")
+
+wtres6 <- lapply(1:nrow(mres6$enrichment_result), function(i) {
+  mygsname <- mres6$enrichment_result$set[i]
+  mygenes <- gs[[which(names(gs) == mygsname)]]
+  ngenes <- length(mygenes)
+  gscs <- colSums(rxf6[which(rownames(rxf6) %in% mygenes),]) / ngenes
+  ctl <- gscs[which(ss6$tumor==0)]
+  tmr <- gscs[which(ss6$tumor==1)]
+  mylist <- list("ctl"=ctl,"tmr"=tmr)
+  #boxplot(mylist,col="white",cex=0,main=mygsname)
+  #beeswarm(mylist,add=TRUE,pch=19,col="gray",cex=1.5)
+  wt <- wilcox.test(tmr,ctl)
+  tt <- t.test(tmr,ctl)
+  rsd <- mean(tmr) - mean(ctl) # rank sum difference
+  tci <- if ( tt$statistic > 0 ) { min(tt$conf.int) } else { max(tt$conf.int) }  # 95% confident effect size in rank sum diff
+
+  slope <- unname(mylm$coefficients[2])
+  int <- unname(mylm$coefficients[1])
+  log2fc_es <- ( slope * rsd ) + int
+  log2fc_ci <- ( slope * tci ) + int
+
+  psd <- sqrt( ( sd(tmr)^2 + sd(ctl)^2 ) / 2 )
+  cd <- ( mean(tmr) - mean(ctl) ) / psd
+  output <- c("rsd"=rsd, "tci"=tci, "cd"=cd, "log2fc_es"=log2fc_es, "log2fc_ci"=log2fc_ci, "wp"=wt$p.value)
+  return(output)
+})
+
+wtres6 <- as.data.frame(do.call(rbind,wtres6))
+wtres6$fdr <- p.adjust(wtres6$wp,method="fdr")
+allres6 <- data.frame(mres6$enrichment_result,wtres6)
+
+head(allres6,10)
+head(allres6[order(allres6$pANOVA),],10)
+head(allres6[order(allres6$wp),],10)
+head(allres6[order(allres6$log2fc_ci),],10)
+
+sigres6 <- subset(allres6,fdr<0.05)
+
+head(sigres6[order(sigres6$log2fc_ci),],10)
+head(sigres6[order(-sigres6$log2fc_ci),],10)
+
+head(sigres6[order(sigres6$pANOVA),],10)
+
+head(sigres6[order(sigres6$cd),],10)
+head(sigres6[order(-sigres6$cd),],10)
+
+head(sigres6[order(sigres6$log2fc_es),],10)
+
+```
+
+
+## Session information
+
+```{r,session}
+
+save.image("w6_workflow.Rdata")
+
+sessionInfo()
+
+```
