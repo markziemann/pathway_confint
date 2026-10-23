@@ -1,0 +1,89 @@
+---
+title: "GSE158420: RNA expression preparation"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    fig_width: 7
+    fig_height: 7
+theme: cosmo
+---
+
+Source: https://github.com/markziemann/background/
+
+## Libs
+
+```{r,libs}
+
+library("HGNChelper")
+
+```
+
+## Fetch data
+
+From GEO https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE158420
+GSE158420_counts.txt.gz
+
+```{r,deseq1}
+
+if (!file.exists("GSE158420_counts.txt.gz")) {
+  download.file("https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE158420&format=file&file=GSE158420%5Fcounts%2Etxt%2Egz",
+    destfile="GSE158420_counts.txt.gz")
+}
+
+x <- read.table("GSE158420_counts.txt.gz",row.names=NULL)
+dim(x)
+x <- aggregate(. ~ row.names,x,sum)
+dim(x)
+
+#RUFKM
+x[1:4,1:6]
+
+```
+
+## Run HGNChelper to fix the gene names
+
+There are some gene name errors, so I will use HGNChelper to repair them.
+
+The gene names were fetched 23-Oct-2027.
+
+```
+currentHumanMap <- getCurrentHumanMap()
+saveRDS(object=currentHumanMap,file="new.hgnc.table.rds")
+```
+
+```{r,gene_name_fix}
+
+human=x$row.names
+new.hgnc.table <- readRDS("new.hgnc.table.rds")
+fix <- checkGeneSymbols(human,map=new.hgnc.table)
+x$gene <- fix$Suggested.Symbol
+x$row.names=NULL
+x <- aggregate(. ~ gene,x,sum)
+dim(x)
+row.names(x)=x$gene
+x$gene=NULL
+x[1:4,1:6]
+
+```
+
+## Save the object for later
+
+Save the object as an RDS file.
+
+```{r,rds}
+
+saveRDS(x,"GSE158420_counts_fixed.rds")
+
+```
+
+## Session info
+
+```{r,sessioninfo}
+
+sessionInfo()
+
+```
+
+
