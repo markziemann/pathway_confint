@@ -1,0 +1,89 @@
+---
+title: "Simplified GSVA"
+author: "Mark Ziemann"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    fig_width: 7
+    fig_height: 7
+theme: cosmo
+---
+
+Source: https://github.com/markziemann/bioinformatics_intro_workshop
+
+## Libs
+
+```{r,libs}
+
+library(GSVA)
+library(edgeR)
+library(msigdbr)
+
+```
+
+## Load gene expression data
+
+From GEO https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE158420
+GSE158420_counts.txt.gz
+
+Data was cleaned according to another script `GSE158420_geneexpression_prep.Rmd`
+
+```{r,loaddat}
+
+x <- readRDS("GSE158420_counts_fixed.rds")
+
+x[1:6,1:5]
+
+```
+
+## 1. Filter low-expression genes and normalise
+
+```{r,filt_normalise}
+
+y <- DGEList(counts = x)
+keep <- filterByExpr(y)
+y <- y[keep, , keep.lib.sizes = FALSE]
+y <- calcNormFactors(y)
+y[1:6,1:5]
+
+```
+
+## 2. Calculate log-CPM expression values
+
+```{r,logCPM}
+
+expr <- cpm(y, log = TRUE, prior.count = 2)
+expr[1:6,1:4]
+
+## 3. Obtain reactome gene sets
+
+```{r,reactome}
+
+gs <- gmt_import("ReactomePathways_2026-10-23.gmt")
+
+```
+
+## 4. Run GSVA
+
+```{r,run_gsva}
+
+param <- gsvaParam(
+    expr = expr,
+    geneSets = gs,
+    kcdf = "Gaussian",
+    minSize = 10,
+    maxSize = 500
+)
+
+scores <- gsva(param)
+
+```
+
+# 5. Inspect results
+dim(scores)          # pathways x samples
+scores[1:5, 1:5]    # example enrichment scores
+
+# 6. Save scores
+write.csv(scores, "GSVA_scores.csv")
