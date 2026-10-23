@@ -17,9 +17,12 @@ Source: https://github.com/markziemann/bioinformatics_intro_workshop
 
 ```{r,libs}
 
-library(GSVA)
-library(edgeR)
-library(msigdbr)
+  library("GSVA")
+  library("edgeR")
+  library("kableExtra")
+  library("gplots")
+  library("fgsea")
+  library("beeswarm")
 
 ```
 
@@ -61,6 +64,18 @@ expr[1:6,1:4]
 
 ```{r,reactome}
 
+gmt_import <- function(gmtfile) {
+    genesetLines <- strsplit(readLines(gmtfile), "\t")
+    genesets <- lapply(genesetLines, utils::tail, -2)
+    names(genesets) <- unlist(lapply(genesetLines, head, 1))
+    attributes(genesets)$originfile <- gmtfile
+    genesets <- genesets[lapply(genesets,length)>0]
+    if( any(duplicated(names(genesets))) ) {
+        warning("Duplicated gene sets names detected")
+    }
+    genesets
+}
+
 gs <- gmt_import("ReactomePathways_2026-10-23.gmt")
 
 ```
@@ -79,11 +94,64 @@ param <- gsvaParam(
 
 scores <- gsva(param)
 
+dim(scores)
+scores[1:6,1:5]
+
 ```
 
-# 5. Inspect results
-dim(scores)          # pathways x samples
-scores[1:5, 1:5]    # example enrichment scores
+## Samplesheet
 
-# 6. Save scores
-write.csv(scores, "GSVA_scores.csv")
+```{r,samplesheet}
+
+ss <- as.data.frame(colnames(x))
+rownames(ss) <- ss[,1]
+ss$patient <- factor(gsub("T","",gsub("N","",gsub("X","",ss[,1]))))
+ss$tumor <- factor(grepl("T",ss[,1]))
+ss[,1]=NULL
+head(ss)
+
+```
+
+
+## Differential expression with edgeR
+
+No adjustment for patient-of-origin effects.
+
+```{r,edgeR1}
+
+design <- model.matrix(~ tumor, data = ss)
+
+fit <- limma::lmFit(scores, design)
+fit <- limma::eBayes(fit)
+
+results <- limma::topTable(
+    fit,
+    coef = "tumorTRUE",
+    number = Inf,
+    adjust.method = "BH"
+)
+
+head(results)
+
+```
+
+Now with adjustment.
+
+```{r,edgeR1}
+
+design <- model.matrix(~ patient + tumor, data = ss)
+
+fit <- limma::lmFit(scores, design)
+fit <- limma::eBayes(fit)
+
+results <- limma::topTable(
+    fit,
+    coef = "tumorTRUE",
+    number = Inf,
+    adjust.method = "BH"
+)
+
+head(results)
+
+```
+
