@@ -139,7 +139,7 @@ head(results)
 
 Now with adjustment.
 
-```{r,edgeR1}
+```{r,edgeR2}
 
 design <- model.matrix(~ patient + tumor, data = ss)
 
@@ -187,7 +187,7 @@ tcdn <- subset(confects$table,confect<0)$name
 
 ```
 
-## Trad PW
+## FCS
 
 ```{r,fcs}
 
@@ -208,6 +208,7 @@ names(fcs_score) <- rownames(res)
 summary(fcs_score)
 
 fres <- fgsea(pathways=gs, stats=fcs_score, minSize=5 )
+fres <- as.data.frame(fres)
 fres <- fres[order(fres$pval),]
 
 head(fres,10) |>
@@ -242,18 +243,94 @@ f_dn <- subset(fres_sig,ES<0&padj<0.05)$pathway
 
 ```
 
+## ORA
+
+```{r,ora1}
+
+upgenes <- rownames(subset(res,logFC>0 & FDR<0.05))
+dngenes <- rownames(subset(res,logFC<0 & FDR<0.05))
+bg <- rownames(res)
+
+ores_up <- fora(pathways=gs,genes=upgenes,universe=bg,minSize=5)
+ores_dn <- fora(pathways=gs,genes=dngenes,universe=bg,minSize=5)
+
+o_up <- subset(ores_up,padj<0.05)$pathway
+o_dn <- subset(ores_dn,padj<0.05)$pathway
+
+
+```
 
 ## Compare
 
 ```{r,pw_euler}
 
-v1 <- list("gsva_up"=gsva_up, "gsva_dn"=gsva_dn,
-  "tcup"=tcup,"tcdn"=tcdn)
+jaccard <- function(x,y) {
+  length(intersect(x,y)) / length(union(x,y))
+}
+
+jaccard(gsva_up,tcup)
+
+
+# GSVA vs FCS
+v1 <- list("GSVA_up"=gsva_up, "GSVA_dn"=gsva_dn,
+  "FCS_up"=f_up,"FCS_dn"=f_dn)
+
+plot(euler(v1),quantities = TRUE)
+
+# ORA vs FCS
+v1 <- list("ORA_up"=o_up, "ORA_dn"=o_dn,
+  "FCS_up"=f_up,"FCS_dn"=f_dn)
+
+plot(euler(v1),quantities = TRUE)
+
+# GSVA vs ORA
+v1 <- list("GSVA_up"=gsva_up, "GSVA_dn"=gsva_dn,
+  "ORA_up"=o_up,"ORA_dn"=o_dn)
+
+plot(euler(v1),quantities = TRUE)
+
+# Compare all
+v1 <- list("GSVA_up"=gsva_up, "GSVA_dn"=gsva_dn,
+  "FCS_up"=f_up,"FCS_dn"=f_dn,
+  "ORA_up"=o_up,"ORA_dn"=o_dn)
 
 plot(euler(v1),quantities = TRUE)
 
 ```
 
+## Scatterplot
+
+```{r,scatter}
+
+head(results)
+head(fres)
+
+m <- merge(fres,results,by.x="pathway",by.y=0)
+head(m)
+plot(m$ES,m$logFC,pch=19,cex=0.6)
+abline(v=0,h=0,lty=2,lwd=1)
+
+plot(m$ES,m$logFC,pch=19,cex=0.6)
+abline(v=0,h=0,lty=2,lwd=1)
+m_sig1 <- subset(m,padj<0.05)
+points(m_sig1$ES,m_sig1$logFC,col="red",pch=19,cex=0.6)
+mtext("FGSEA sig points in red")
+
+plot(m$ES,m$logFC,pch=19,cex=0.6)
+abline(v=0,h=0,lty=2,lwd=1)
+m_sig2 <- subset(m,adj.P.Val<0.05)
+points(m_sig2$ES,m_sig2$logFC,col="blue",pch=19,cex=0.6)
+mtext("GSVA sig points in blue")
+
+plot(m$ES,m$logFC,pch=19,cex=0.6)
+abline(v=0,h=0,lty=2,lwd=1)
+m_sig3 <- subset(m,adj.P.Val<0.05 & padj<0.05)
+points(m_sig1$ES,m_sig1$logFC,col="red",pch=19,cex=0.6)
+points(m_sig2$ES,m_sig2$logFC,col="blue",pch=19,cex=0.6)
+points(m_sig3$ES,m_sig3$logFC,col="orange",pch=19,cex=0.6)
+mtext("FGSEA=red, GSVA=blue,both=orange")
+
+```
 
 ## Session
 
