@@ -187,6 +187,40 @@ tcdn <- subset(confects$table,confect<0)$name
 
 ```
 
+## Compare topconfect results to the limma-GSVA
+
+```{r,topcpnfect_compare}
+
+m0 <- merge(results,confects$table,by.x=0,by.y="name")
+head(m0)
+
+plot(m0$logFC, -log10(m0$P.Value) )
+
+```
+
+## Show beeswarm chart of top pathways
+
+Compare topconfects and GSVA-limma.
+
+
+```{r,beeswarm1}
+
+par(mfrow=c(3,3))
+lapply( confects$table$name[1:9],function(gsname) {
+  dat <- scores[which(rownames(scores) == gsname),]
+  ctl <- dat[grep("N",names(dat))]
+  tmr <- dat[grep("T",names(dat))]
+  xl <- list("ctl"=ctl,"tmr"=tmr)
+  boxplot(xl,cex=0,col="white",
+    ylab="Pathway activation",
+    main=gsname, cex.main=0.8)
+  beeswarm(xl,pch=19,col="darkgray",add=TRUE)
+})
+
+par(mfrow=c(1,1))
+
+```
+
 ## FCS
 
 ```{r,fcs}
@@ -236,7 +270,6 @@ fres_sig <- fres_sig[order(fres_sig$ES),]
 head(fres_sig,20) |>
   kbl(caption="Top downregulated pathways as prioritised by ES (after eliminating FDR>0.05)") |>
   kable_paper("hover", full_width = F)
-
 
 f_up <- subset(fres_sig,ES>0&padj<0.05)$pathway
 f_dn <- subset(fres_sig,ES<0&padj<0.05)$pathway
@@ -329,6 +362,22 @@ points(m_sig1$ES,m_sig1$logFC,col="red",pch=19,cex=0.6)
 points(m_sig2$ES,m_sig2$logFC,col="blue",pch=19,cex=0.6)
 points(m_sig3$ES,m_sig3$logFC,col="orange",pch=19,cex=0.6)
 mtext("FGSEA=red, GSVA=blue,both=orange")
+
+```
+
+## Directional question
+
+Potential contradiction with logFC (GSVA) and ES (FGSEA).
+
+```{r,direction_contradiction}
+
+subset(m_sig2,adj.P.Val<0.05 & logFC < 0 & ES > 0) |>
+  kbl(caption="bottom-right pathways") |>
+  kable_paper("hover", full_width = F)
+
+subset(m_sig2,adj.P.Val<0.05 & logFC > 0 & ES < 0) |>
+  kbl(caption="top-left pathways") |>
+  kable_paper("hover", full_width = F)
 
 ```
 
