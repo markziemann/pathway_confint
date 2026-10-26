@@ -91,7 +91,7 @@ param <- gsvaParam(
     expr = expr,
     geneSets = gs,
     kcdf = "Gaussian",
-    minSize = 10,
+    minSize = 5,
     maxSize = 500
 )
 
@@ -133,7 +133,9 @@ results <- limma::topTable(
     adjust.method = "BH"
 )
 
-head(results)
+head(results,10) |>
+  kbl(caption="Top GSVA-limma results without sample pairing") |>
+  kable_paper("hover", full_width = F)
 
 ```
 
@@ -153,7 +155,10 @@ results <- limma::topTable(
     adjust.method = "BH"
 )
 
-head(results)
+head(results,10) |>
+  kbl(caption="Top GSVA-limma results with sample pairing") |>
+  kable_paper("hover", full_width = F)
+
 
 gsva_up <- rownames(subset(results,logFC>0 & adj.P.Val < 0.05))
 gsva_dn <- rownames(subset(results,logFC<0 & adj.P.Val < 0.05))
@@ -185,6 +190,8 @@ nrow(subset(confects$table,confect<0))
 tcup <- subset(confects$table,confect>0)$name
 tcdn <- subset(confects$table,confect<0)$name
 
+plot(confects$table$effect,confects$table$confect)
+
 ```
 
 ## Compare topconfect results to the limma-GSVA
@@ -206,7 +213,7 @@ Compare topconfects and GSVA-limma.
 ```{r,beeswarm1}
 
 par(mfrow=c(3,3))
-lapply( confects$table$name[1:9],function(gsname) {
+null <- lapply( confects$table$name[1:9],function(gsname) {
   dat <- scores[which(rownames(scores) == gsname),]
   ctl <- dat[grep("N",names(dat))]
   tmr <- dat[grep("T",names(dat))]
