@@ -1,5 +1,5 @@
 ---
-title: "Simplified GSVA"
+title: "Confident effect sizes of pathway activity"
 author: "Mark Ziemann"
 date: "`r Sys.Date()`"
 output:
@@ -199,7 +199,11 @@ plot(confects$table$effect,confects$table$confect)
 ```{r,topcpnfect_compare}
 
 m0 <- merge(results,confects$table,by.x=0,by.y="name")
-head(m0)
+
+head(m0) |>
+  kbl(caption="merged file") |>
+  kable_paper("hover", full_width = F)
+
 
 plot(m0$logFC, -log10(m0$P.Value) )
 
@@ -340,10 +344,12 @@ plot(euler(v1),quantities = TRUE)
 
 ## Scatterplot
 
+Merge GSVA-limma and FGSEA results tables.
+
 ```{r,scatter}
 
-head(results)
-head(fres)
+#head(results)
+#head(fres)
 
 m <- merge(fres,results,by.x="pathway",by.y=0)
 head(m)
