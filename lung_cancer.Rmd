@@ -11,11 +11,11 @@ output:
 theme: cosmo
 ---
 
-Source: https://github.com/markziemann/bioinformatics_intro_workshop
+Source: https://github.com/markziemann/pathway_confint
 
 ## Introduction
 
-In this workshop, we will start working on some RNA-seq data. Here is the citation:
+In this report we will be working with some RNA-seq data. Here is the citation:
 
 Cho JW, Shim HS, Lee CY, Park SY et al. The importance of enhancer methylation for epigenetic regulation of tumorigenesis in squamous lung cancer. Exp Mol Med 2022 Jan;54(1):12-22. PMID: 34987166
 

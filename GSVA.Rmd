@@ -11,7 +11,7 @@ output:
 theme: cosmo
 ---
 
-Source: https://github.com/markziemann/bioinformatics_intro_workshop
+Source: https://github.com/markziemann/pathway_confint
 
 ## Libs
 
@@ -23,6 +23,9 @@ Source: https://github.com/markziemann/bioinformatics_intro_workshop
   library("gplots")
   library("fgsea")
   library("beeswarm")
+  library("topconfects")
+  library("fgsea")
+  library("eulerr")
 
 ```
 
@@ -99,7 +102,7 @@ scores[1:6,1:5]
 
 ```
 
-## Samplesheet
+## Samplesheet set up
 
 ```{r,samplesheet}
 
@@ -111,7 +114,6 @@ ss[,1]=NULL
 head(ss)
 
 ```
-
 
 ## Differential expression with edgeR
 
@@ -153,5 +155,110 @@ results <- limma::topTable(
 
 head(results)
 
+gsva_up <- rownames(subset(results,logFC>0 & adj.P.Val < 0.05))
+gsva_dn <- rownames(subset(results,logFC<0 & adj.P.Val < 0.05))
+
 ```
 
+## Topconfects
+
+```{r,topconfect_pw}
+
+confects <- limma_confects(fit, coef="tumorTRUE", fdr=0.05)
+
+head(confects$table,10) |>
+  kbl(caption="Top pathway confident effect sizes") |>
+  kable_paper("hover", full_width = F)
+
+head(subset(confects$table,confect>0),20) |>
+  kbl(caption="Top upregulated pathway confident effect sizes") |>
+  kable_paper("hover", full_width = F)
+
+head(subset(confects$table,confect<0),20) |>
+  kbl(caption="Top downregulated pathway confident effect sizes") |>
+  kable_paper("hover", full_width = F)
+
+nrow(subset(confects$table,confect>0))
+
+nrow(subset(confects$table,confect<0))
+
+tcup <- subset(confects$table,confect>0)$name
+tcdn <- subset(confects$table,confect<0)$name
+
+```
+
+## Trad PW
+
+```{r,fcs}
+
+design <- model.matrix(~ patient + tumor, data = ss)
+
+y <- DGEList(counts = x)
+keep <- filterByExpr(y,group=ss$tumor)
+y <- y[keep, , keep.lib.sizes = FALSE]
+y <- calcNormFactors(y, method = "TMM")
+y <- estimateDisp(y, design)
+fit <- glmQLFit(y, design)
+qlf <- glmQLFTest(fit, coef = "tumorTRUE")
+res <- topTags(qlf, n = Inf)$table
+
+fcs_score <- -log10(res$PValue) * sign(res$logFC)
+names(fcs_score) <- rownames(res)
+
+summary(fcs_score)
+
+fres <- fgsea(pathways=gs, stats=fcs_score, minSize=5 )
+fres <- fres[order(fres$pval),]
+
+head(fres,10) |>
+  kbl(caption="Top pathways as prioritised by p-value") |>
+  kable_paper("hover", full_width = F)
+
+head(subset(fres,ES>0),20) |>
+  kbl(caption="Top upregulated pathways as prioritised by p-value") |>
+  kable_paper("hover", full_width = F)
+
+head(subset(fres,ES<0),20) |>
+  kbl(caption="Top downregulated pathways as prioritised by p-value") |>
+  kable_paper("hover", full_width = F)
+
+fres_sig <- subset(fres,padj<0.05)
+
+fres_sig <- fres_sig[order(-fres_sig$ES),]
+
+head(fres_sig,20) |>
+  kbl(caption="Top upregulated pathways as prioritised by ES (after eliminating FDR>0.05)") |>
+  kable_paper("hover", full_width = F)
+
+fres_sig <- fres_sig[order(fres_sig$ES),]
+
+head(fres_sig,20) |>
+  kbl(caption="Top downregulated pathways as prioritised by ES (after eliminating FDR>0.05)") |>
+  kable_paper("hover", full_width = F)
+
+
+f_up <- subset(fres_sig,ES>0&padj<0.05)$pathway
+f_dn <- subset(fres_sig,ES<0&padj<0.05)$pathway
+
+```
+
+
+## Compare
+
+```{r,pw_euler}
+
+v1 <- list("gsva_up"=gsva_up, "gsva_dn"=gsva_dn,
+  "tcup"=tcup,"tcdn"=tcdn)
+
+plot(euler(v1),quantities = TRUE)
+
+```
+
+
+## Session
+
+```{r,session}
+
+sessionInfo()
+
+```
