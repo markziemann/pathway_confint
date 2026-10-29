@@ -351,32 +351,177 @@ Merge GSVA-limma and FGSEA results tables.
 #head(results)
 #head(fres)
 
-m <- merge(fres,results,by.x="pathway",by.y=0)
+m <- merge(fres,m0,by.x="pathway",by.y="Row.names")
+
+
 head(m)
-plot(m$ES,m$logFC,pch=19,cex=0.6)
+plot(m$ES,m$logFC,pch=19,cex=0.6,
+  xlab="FGSEA ES", ylab="GSVA log2FC")
 abline(v=0,h=0,lty=2,lwd=1)
 
-plot(m$ES,m$logFC,pch=19,cex=0.6)
+plot(m$ES,m$logFC,pch=19,cex=0.6,
+  xlab="FGSEA ES", ylab="GSVA log2FC")
 abline(v=0,h=0,lty=2,lwd=1)
 m_sig1 <- subset(m,padj<0.05)
 points(m_sig1$ES,m_sig1$logFC,col="red",pch=19,cex=0.6)
 mtext("FGSEA sig points in red")
 
-plot(m$ES,m$logFC,pch=19,cex=0.6)
+plot(m$ES,m$logFC,pch=19,cex=0.6,
+  xlab="FGSEA ES", ylab="GSVA log2FC")
 abline(v=0,h=0,lty=2,lwd=1)
 m_sig2 <- subset(m,adj.P.Val<0.05)
 points(m_sig2$ES,m_sig2$logFC,col="blue",pch=19,cex=0.6)
 mtext("GSVA sig points in blue")
 
-plot(m$ES,m$logFC,pch=19,cex=0.6)
+plot(m$ES,m$logFC,pch=19,cex=0.6,
+  xlab="FGSEA ES", ylab="GSVA log2FC")
 abline(v=0,h=0,lty=2,lwd=1)
 m_sig3 <- subset(m,adj.P.Val<0.05 & padj<0.05)
-points(m_sig1$ES,m_sig1$logFC,col="red",pch=19,cex=0.6)
 points(m_sig2$ES,m_sig2$logFC,col="blue",pch=19,cex=0.6)
+points(m_sig1$ES,m_sig1$logFC,col="red",pch=19,cex=0.6)
 points(m_sig3$ES,m_sig3$logFC,col="orange",pch=19,cex=0.6)
 mtext("FGSEA=red, GSVA=blue,both=orange")
 
+plot(m$ES,m$confect,pch=19,cex=0.6,
+  xlab="FGSEA ES", ylab="Confect")
+abline(v=0,h=0,lty=2,lwd=1)
+m_sig3 <- subset(m,adj.P.Val<0.05 & padj<0.05)
+points(m_sig2$ES,m_sig2$confect,col="blue",pch=19,cex=0.6)
+points(m_sig1$ES,m_sig1$confect,col="red",pch=19,cex=0.6)
+points(m_sig3$ES,m_sig3$confect,col="orange",pch=19,cex=0.6)
+mtext("FGSEA=red, GSVA=blue,both=orange")
+
+
 ```
+
+## Compare confect to NES
+
+```{r,scatter2}
+
+plot(m$NES,m$confect,
+  xlab="FGSEA NES", ylab="GSVA confect")
+abline(v=0,h=0,lty=2,lwd=1)
+
+cor(m2$NES,m2$confect)
+cor(m2$ES,m2$confect)
+cor(rank(m$NES)-table(m$NES>0)[1], rank(m$effect) - table(m$effect>0)[1] )
+cor(sign(m2$ES)*-log10(m2$pval),m2$confect)
+
+plot(m$ES,m$confect,
+  xlab="FGSEA ES", ylab="GSVA confect")
+abline(v=0,h=0,lty=2,lwd=1)
+
+plot(rank(m$NES)-table(m$NES>0)[1], rank(m$effect) - table(m$effect>0)[1] ,
+  xlab="FGSEA NES rank", ylab="GSVA effect rank")
+abline(v=0,h=0,lty=2,lwd=1)
+
+plot(sign(m$ES)*-log10(m$pval),m$confect,
+  xlab="FGSEA -log10(p)", ylab="GSVA confect")
+abline(v=0,h=0,lty=2,lwd=1)
+
+m2 <- m[!is.na(m$confect),]
+
+plot(sign(m$ES)*-log10(m$pval),m$confect,
+  xlab="FGSEA -log10(p)", ylab="GSVA confect")
+abline(v=0,h=0,lty=2,lwd=1)
+
+m2$fprank <- rank( sign(m2$ES)*-log10(m2$pval) ) - table(sign(m2$ES)*-log10(m2$pval)>0)[1]
+m2$NESrank <- rank(m2$NES)-table(m2$NES>0)[1]
+m2$confect_rank <- rank(m2$confect) - table(m2$confect>0)[1]
+m2$prankdiff <- abs(m2$fprank - m2$confect_rank)
+m2$rankdiff <- abs(m2$NESrank - m2$confect_rank)
+
+plot( m2$fprank, m2$confect_rank,
+  xlab="Signed p-value rank",
+  ylab="Signed confect rank")
+abline(v=0,h=0,lty=2,lwd=1)
+
+discrepant0 <- subset(m2,prankdiff>300)
+
+plot( m2$fprank, m2$confect_rank,
+  xlab="Signed p-value rank",
+  ylab="Signed confect rank")
+abline(v=0,h=0,lty=2,lwd=1)
+
+points(discrepant0$fprank, discrepant0$confect_rank,
+  pch=10,col="orange")
+
+summary(discrepant0$size)
+summary(m2$size)
+
+plot(m2$NESrank, m2$confect_rank,
+  xlab="FGSEA NES rank", ylab="GSVA confect")
+abline(v=0,h=0,lty=2,lwd=1)
+
+hist(m2$rankdiff)
+nrow(subset(m2,rankdiff>300))
+
+discrepant <- subset(m2,rankdiff>300)
+discrepant <- discrepant[order(-discrepant$rankdiff),]
+
+plot(m2$NESrank, m2$confect_rank,
+  xlab="FGSEA NES rank", ylab="GSVA confect")
+abline(v=0,h=0,lty=2,lwd=1)
+
+points(discrepant$NESrank, discrepant$confect_rank,
+  pch=10,col="orange")
+
+head( discrepant , 20) |>
+  kbl(caption="Discrepant prioritisation") |>
+  kable_paper("hover", full_width = F)
+
+summary(discrepant$size)
+summary(m2$size)
+
+```
+
+Relationship of set size and NES.
+
+```{r,NESsize1}
+
+plot(log10(m$size+1),abs(m$NES),xlab="log10 set size",ylab="Absolute NES")
+mylm2 <- lm( abs(m$NES) ~ log10(m$size+1) )
+abline(mylm2,col="red",lty=2,lwd=2)
+mylm2
+
+plot(log10(m$size+1),abs(m$ES),xlab="log10 set size",ylab="Absolute ES")
+mylm3 <- lm( abs(m$ES) ~ log10(m$size+1) )
+abline(mylm3,col="red",lty=2,lwd=2)
+mylm3
+
+plot(log10(m$size+1),abs(m$effect),xlab="log10 set size",ylab="Estimated effect (log2FC)")
+mylm4 <- lm( abs(m$effect) ~ log10(m$size+1) )
+abline(mylm4,col="red",lty=2,lwd=2)
+mylm4
+
+plot(log10(m2$size+1),abs(m2$confect),xlab="log10 set size",ylab="Confect")
+mylm5 <- lm( abs(m2$effect) ~ log10(m2$size+1) )
+abline(mylm5,col="red",lty=2,lwd=2)
+mylm5
+
+```
+
+
+Table of top results prioritised by different approaches:
+
+```{r,prioritisation}
+
+head(m[order(m$confect),],20) |>
+  kbl(caption="Best down-regulated pathways by confect") |>
+  kable_paper("hover", full_width = F)
+
+head(m[order(-m$confect),],20) |>
+  kbl(caption="Best up-regulated pathways by confect") |>
+  kable_paper("hover", full_width = F)
+
+```
+
+
+
+
+## Compare confect to p-value
+
+
 
 ## Directional question
 
