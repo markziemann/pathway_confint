@@ -1,5 +1,5 @@
 ---
-title: "Confident effect sizes of pathway activity"
+title: "Confident effect sizes of pathway activity compared to FCS and ORA"
 author: "Mark Ziemann"
 date: "`r Sys.Date()`"
 output:
@@ -301,7 +301,6 @@ ores_dn <- fora(pathways=gs,genes=dngenes,universe=bg,minSize=5)
 o_up <- subset(ores_up,padj<0.05)$pathway
 o_dn <- subset(ores_dn,padj<0.05)$pathway
 
-
 ```
 
 ## Compare
@@ -390,7 +389,6 @@ points(m_sig2$ES,m_sig2$confect,col="blue",pch=19,cex=0.6)
 points(m_sig1$ES,m_sig1$confect,col="red",pch=19,cex=0.6)
 points(m_sig3$ES,m_sig3$confect,col="orange",pch=19,cex=0.6)
 mtext("FGSEA=red, GSVA=blue,both=orange")
-
 
 ```
 
@@ -482,20 +480,101 @@ cor(m2$NESrank, m2$confect_rank)
 
 ```
 
+## Compare confect to ORA
+
+```{r,scatter3}
+
+dim(fres)
+dim(ores_up)
+dim(ores_dn)
+
+
+ores_dn$foldEnrichment <- ores_dn$foldEnrichment * -1
+
+o_comb <- lapply(ores_up$pathway, function(x) {
+  upES <- subset(ores_up,pathway==x)[,"foldEnrichment"]
+  dnES <-  subset(ores_dn,pathway==x)[,"foldEnrichment"]
+  if ( abs(upES) >= abs(dnES) ) {
+    subset(ores_up,pathway==x)
+  } else {
+    subset(ores_dn,pathway==x)
+  }
+} )
+
+o_comb <- as.data.frame(do.call(rbind,o_comb))
+
+mo <- merge(o_comb,m0,by.x="pathway",by.y="Row.names")
+
+head(mo)
+
+# ORA fold enrichment vs GSVA confect
+plot(mo$foldEnrichment,mo$confect,
+  xlab="ORA FES", ylab="GSVA confect")
+abline(v=0,h=0,lty=2,lwd=1)
+
+# ORA fold enrichment vs GSVA effect
+plot(mo$foldEnrichment,mo$effect,
+  xlab="ORA FES", ylab="GSVA effect")
+abline(v=0,h=0,lty=2,lwd=1)
+
+# rank of ORA fold enrichment versus rank of GSVA effect
+plot(rank(mo$foldEnrichment)-table(mo$foldEnrichment>0)[1], rank(mo$effect) - table(mo$effect>0)[1] ,
+  xlab="ORA fold enrichment rank", ylab="GSVA effect rank")
+abline(v=0,h=0,lty=2,lwd=1)
+
+plot(sign(mo$foldEnrichment)*-log10(mo$pval),mo$confect,
+  xlab="ORA -log10(p)", ylab="GSVA confect")
+abline(v=0,h=0,lty=2,lwd=1)
+
+mo2 <- mo[!is.na(mo$confect),]
+
+mo2$oprank <- rank( sign(mo2$foldEnrichment)*-log10(mo2$pval) ) - table(sign(mo2$foldEnrichment)*-log10(mo2$pval)>0)[1]
+mo2$FESrank <- rank(mo2$foldEnrichment)-table(mo2$foldEnrichment>0)[1]
+mo2$confect_rank <- rank(mo2$confect) - table(mo2$confect>0)[1]
+mo2$orankdiff <- abs(mo2$oprank - mo2$confect_rank)
+mo2$rankdiff <- abs(mo2$FESrank - mo2$confect_rank)
+
+plot( mo2$oprank, mo2$confect_rank,
+  xlab="Signed ORA p-value rank",
+  ylab="Signed GSVA confect rank")
+abline(v=0,h=0,lty=2,lwd=1)
+
+discrepant0 <- subset(mo2,orankdiff>300)
+
+plot( mo2$oprank, mo2$confect_rank,
+  xlab="Signed ORA p-value rank",
+  ylab="Signed GSVA confect rank")
+abline(v=0,h=0,lty=2,lwd=1)
+
+points(discrepant0$oprank, discrepant0$confect_rank,
+  pch=10,col="orange")
+
+summary(discrepant0$size)
+summary(mo2$size)
+
+plot(mo2$FESrank, mo2$confect_rank,
+  xlab="ORA FES rank", ylab="GSVA confect rank")
+abline(v=0,h=0,lty=2,lwd=1)
+
+hist(mo2$rankdiff)
+nrow(subset(mo2,rankdiff>300))
+
+
 Relationship of set size and NES.
 
 ```{r,NESsize1}
 
-plot(log10(m$size+1),abs(m$NES),xlab="log10 set size",ylab="Absolute NES")
-mylm2 <- lm( abs(m$NES) ~ log10(m$size+1) )
+plot(log10(mo$size+1),abs(mo$foldEnrichment),xlab="log10 set size",ylab="Absolute FES")
+mylm2 <- lm( abs(mo$foldEnrichment) ~ log10(mo$size+1) )
 abline(mylm2,col="red",lty=2,lwd=2)
 mylm2
 
-plot(log10(m$size+1),abs(m$ES),xlab="log10 set size",ylab="Absolute ES")
-mylm3 <- lm( abs(m$ES) ~ log10(m$size+1) )
+plot(log10(mo2$size+1),-log10(mo2$pval),xlab="log10 set size",ylab="-log10 pval")
+mylm3 <- lm( -log10(mo2$pval) ~ log10(mo2$size+1) )
 abline(mylm3,col="red",lty=2,lwd=2)
 mylm3
 
+# herenow
 plot(log10(m$size+1),abs(m$effect),xlab="log10 set size",ylab="Estimated effect (log2FC)")
 mylm4 <- lm( abs(m$effect) ~ log10(m$size+1) )
 abline(mylm4,col="red",lty=2,lwd=2)
@@ -512,10 +591,51 @@ slopes <- c("NES"=unname(mylm2$coefficients[2]),
   "GSVA confect"= unname(mylm5$coefficients[2]))
 
 barplot(slopes,ylab="Slope: prioritisation measure vs gene set size")
+slopes
 
+plot( log10(m$size+1), abs(m$NES) / max(abs(m$NES)),
+  xlab="log10 set size",ylab="Scaled NES",
+  ylim=c(0,1))
+mylm2 <- lm( abs(m$NES)/max(abs(m$NES)) ~ log10(m$size+1) )
+abline(mylm2,col="red",lty=2,lwd=2)
+mylm2
+
+plot( log10(m$size+1), abs(m$ES) / max(abs(m$ES)) ,
+  xlab="log10 set size",ylab="Scaled ES",
+  ylim=c(0,1))
+mylm3 <- lm( abs(m$ES) / max(abs(m$ES)) ~ log10(m$size+1) )
+abline(mylm3,col="red",lty=2,lwd=2)
+mylm3
+
+plot(log10(m$size+1), abs(m$effect) / max(abs(m$effect)),
+  xlab="log10 set size",ylab="Scaled effect size (log2FC)",
+  ylim=c(0,1))
+mylm4 <- lm( abs(m$effect) / max(abs(m$effect)) ~ log10(m$size+1) )
+abline(mylm4,col="red",lty=2,lwd=2)
+mylm4
+
+plot(log10(m2$size+1),abs(m2$confect)/max(abs(m2$confect)),
+  xlab="log10 set size",ylab="Scaled confect",
+  ylim=c(0,1))
+mylm5 <- lm( abs(m2$effect)/max(abs(m2$confect)) ~ log10(m2$size+1) )
+abline(mylm5,col="red",lty=2,lwd=2)
+mylm5
+
+slopes <- c("NES"=unname(mylm2$coefficients[2]),
+  "ES"=unname(mylm3$coefficients[2]),
+  "GSVA log2FC"=unname(mylm4$coefficients[2]),
+  "GSVA confect"= unname(mylm5$coefficients[2]))
+
+barplot(slopes,ylim=c(-0.1,0.2),
+  ylab="Scaled slope: prioritisation measure vs gene set size")
+
+slopes
+
+abs(slopes[1])/abs(slopes[3])
+abs(slopes[2])/abs(slopes[3])
+abs(slopes[1])/abs(slopes[4])
 
 ```
-
 
 Table of top results prioritised by different approaches:
 
