@@ -402,11 +402,6 @@ plot(m$NES,m$confect,
   xlab="FGSEA NES", ylab="GSVA confect")
 abline(v=0,h=0,lty=2,lwd=1)
 
-cor(m2$NES,m2$confect)
-cor(m2$ES,m2$confect)
-cor(rank(m$NES)-table(m$NES>0)[1], rank(m$effect) - table(m$effect>0)[1] )
-cor(sign(m2$ES)*-log10(m2$pval),m2$confect)
-
 plot(m$ES,m$confect,
   xlab="FGSEA ES", ylab="GSVA confect")
 abline(v=0,h=0,lty=2,lwd=1)
@@ -420,10 +415,6 @@ plot(sign(m$ES)*-log10(m$pval),m$confect,
 abline(v=0,h=0,lty=2,lwd=1)
 
 m2 <- m[!is.na(m$confect),]
-
-plot(sign(m$ES)*-log10(m$pval),m$confect,
-  xlab="FGSEA -log10(p)", ylab="GSVA confect")
-abline(v=0,h=0,lty=2,lwd=1)
 
 m2$fprank <- rank( sign(m2$ES)*-log10(m2$pval) ) - table(sign(m2$ES)*-log10(m2$pval)>0)[1]
 m2$NESrank <- rank(m2$NES)-table(m2$NES>0)[1]
@@ -473,6 +464,22 @@ head( discrepant , 20) |>
 summary(discrepant$size)
 summary(m2$size)
 
+cor(m$NES,m$effect)
+cor(m$ES,m$effect)
+cor(m2$NES,m2$confect)
+cor(m2$ES,m2$confect)
+
+# NES rank vs effect rank
+cor(rank(m$NES)-table(m$NES>0)[1], rank(m$effect) - table(m$effect>0)[1] )
+
+# ES rank vs confect
+cor(sign(m2$ES)*-log10(m2$pval),m2$confect)
+
+# FGSEA p-val rank vs confect rank
+cor( m2$fprank, m2$confect_rank )
+
+cor(m2$NESrank, m2$confect_rank)
+
 ```
 
 Relationship of set size and NES.
@@ -499,6 +506,14 @@ mylm5 <- lm( abs(m2$effect) ~ log10(m2$size+1) )
 abline(mylm5,col="red",lty=2,lwd=2)
 mylm5
 
+slopes <- c("NES"=unname(mylm2$coefficients[2]),
+  "ES"=unname(mylm3$coefficients[2]),
+  "GSVA log2FC"=unname(mylm4$coefficients[2]),
+  "GSVA confect"= unname(mylm5$coefficients[2]))
+
+barplot(slopes,ylab="Slope: prioritisation measure vs gene set size")
+
+
 ```
 
 
@@ -516,14 +531,9 @@ head(m[order(-m$confect),],20) |>
 
 ```
 
-
-
-
 ## Compare confect to p-value
 
-
-
-## Directional question
+Directional question
 
 Potential contradiction with logFC (GSVA) and ES (FGSEA).
 
