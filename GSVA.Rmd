@@ -352,7 +352,6 @@ Merge GSVA-limma and FGSEA results tables.
 
 m <- merge(fres,m0,by.x="pathway",by.y="Row.names")
 
-
 head(m)
 plot(m$ES,m$logFC,pch=19,cex=0.6,
   xlab="FGSEA ES", ylab="GSVA log2FC")
@@ -393,6 +392,8 @@ mtext("FGSEA=red, GSVA=blue,both=orange")
 ```
 
 ## Compare confect to NES
+
+GSVA confect vs FGSEA
 
 ```{r,scatter2}
 
@@ -480,14 +481,106 @@ cor(m2$NESrank, m2$confect_rank)
 
 ```
 
+Relationship of set size and prioritisation metrics.
+
+```{r,NESsize1}
+
+plot(log10(m2$size+1),abs(m2$ES),xlab="log10 set size",ylab="Absolute ES")
+mylm1 <- lm( abs(m2$ES) ~ log10(m2$size+1) )
+abline(mylm1,col="red",lty=2,lwd=2)
+mylm1
+
+plot(log10(m2$size+1),abs(m2$NES),xlab="log10 set size",ylab="Absolute NES")
+mylm2 <- lm( abs(m2$NES) ~ log10(m2$size+1) )
+abline(mylm2,col="red",lty=2,lwd=2)
+mylm2
+
+plot(log10(m2$size+1),-log10(m2$pval),xlab="log10 set size",ylab="-log10 pval")
+mylm3 <- lm( -log10(m2$pval) ~ log10(m2$size+1) )
+abline(mylm3,col="red",lty=2,lwd=2)
+mylm3
+
+plot(log10(m2$size+1),abs(m2$effect),xlab="log10 set size",ylab="Estimated effect (log2FC)")
+mylm4 <- lm( abs(m2$effect) ~ log10(m2$size+1) )
+abline(mylm4,col="red",lty=2,lwd=2)
+mylm4
+
+plot(log10(m2$size+1),abs(m2$confect),xlab="log10 set size",ylab="Confect")
+mylm5 <- lm( abs(m2$effect) ~ log10(m2$size+1) )
+abline(mylm5,col="red",lty=2,lwd=2)
+mylm5
+
+slopes <- c("ES"=unname(mylm1$coefficients[2]),
+  "NES"=unname(mylm2$coefficients[2]),
+  "-log10 p-val"=unname(mylm3$coefficients[2]),
+  "GSVA log2FC"=unname(mylm4$coefficients[2]),
+  "GSVA confect"= unname(mylm5$coefficients[2]))
+
+barplot(slopes,ylab="Slope: prioritisation measure vs gene set size")
+slopes
+
+plot(log10(m2$size+1),abs(m2$ES) / max(abs(m$ES)),
+  xlab="log10 set size",ylab="Absolute ES",
+  ylim=c(0,1))
+mylm1 <- lm( abs(m2$ES) / max(abs(m$ES)) ~ log10(m2$size+1) )
+abline(mylm1,col="red",lty=2,lwd=2)
+mylm1
+
+plot(log10(m2$size+1),abs(m2$NES) / max(abs(m$NES)),
+  xlab="log10 set size",ylab="Absolute NES",
+  ylim=c(0,1))
+mylm2 <- lm( abs(m2$NES) / max(abs(m$NES)) ~ log10(m2$size+1) )
+abline(mylm2,col="red",lty=2,lwd=2)
+mylm2
+
+plot(log10(m2$size+1),-log10(m2$pval) / max(-log10(m2$pval)) ,
+  xlab="log10 set size",ylab="-log10 pval",
+  ylim=c(0,1))
+mylm3 <- lm( -log10(m2$pval)/ max(-log10(m2$pval)) ~ log10(m2$size+1) )
+abline(mylm3,col="red",lty=2,lwd=2)
+mylm3
+
+plot(log10(m2$size+1),abs(m2$effect) / max(abs(m2$effect)),
+  xlab="log10 set size",ylab="Estimated effect (log2FC)",
+  ylim=c(0,1))
+mylm4 <- lm( abs(m2$effect) / max(abs(m2$effect)) ~ log10(m2$size+1) )
+abline(mylm4,col="red",lty=2,lwd=2)
+mylm4
+
+plot(log10(m2$size+1), abs(m2$confect) / max(abs(m2$confect)),
+  xlab="log10 set size",ylab="Confect",
+  ylim=c(0,1))
+mylm5 <- lm( abs(m2$effect)/max(abs(m2$confect)) ~ log10(m2$size+1) )
+abline(mylm5,col="red",lty=2,lwd=2)
+mylm5
+
+slopes <- c( "ES"=unname(mylm1$coefficients[2]),
+  "NES"=unname(mylm2$coefficients[2]),
+  "-log10 p-val"=unname(mylm3$coefficients[2]),
+  "GSVA log2FC"=unname(mylm4$coefficients[2]),
+  "GSVA confect"= unname(mylm5$coefficients[2]))
+
+barplot(slopes,ylim=c(-0.1,0.2),
+  ylab="Scaled slope: prioritisation measure vs gene set size")
+
+slopes
+
+abs(slopes[1])/abs(slopes[5])
+abs(slopes[2])/abs(slopes[5])
+abs(slopes[3])/abs(slopes[5])
+abs(slopes[4])/abs(slopes[5])
+
+```
+
 ## Compare confect to ORA
+
+GSVA vs ORA
 
 ```{r,scatter3}
 
 dim(fres)
 dim(ores_up)
 dim(ores_dn)
-
 
 ores_dn$foldEnrichment <- ores_dn$foldEnrichment * -1
 
@@ -559,10 +652,11 @@ abline(v=0,h=0,lty=2,lwd=1)
 hist(mo2$rankdiff)
 nrow(subset(mo2,rankdiff>300))
 
+```
 
 Relationship of set size and NES.
 
-```{r,NESsize1}
+```{r,NESsize2}
 
 plot(log10(mo$size+1),abs(mo$foldEnrichment),xlab="log10 set size",ylab="Absolute FES")
 mylm2 <- lm( abs(mo$foldEnrichment) ~ log10(mo$size+1) )
@@ -574,55 +668,54 @@ mylm3 <- lm( -log10(mo2$pval) ~ log10(mo2$size+1) )
 abline(mylm3,col="red",lty=2,lwd=2)
 mylm3
 
-# herenow
-plot(log10(m$size+1),abs(m$effect),xlab="log10 set size",ylab="Estimated effect (log2FC)")
-mylm4 <- lm( abs(m$effect) ~ log10(m$size+1) )
+plot(log10(mo2$size+1),abs(mo2$effect),xlab="log10 set size",ylab="Estimated effect (log2FC)")
+mylm4 <- lm( abs(mo$effect) ~ log10(mo$size+1) )
 abline(mylm4,col="red",lty=2,lwd=2)
 mylm4
 
-plot(log10(m2$size+1),abs(m2$confect),xlab="log10 set size",ylab="Confect")
-mylm5 <- lm( abs(m2$effect) ~ log10(m2$size+1) )
+plot(log10(mo2$size+1),abs(mo2$confect),xlab="log10 set size",ylab="Confect")
+mylm5 <- lm( abs(mo2$effect) ~ log10(mo2$size+1) )
 abline(mylm5,col="red",lty=2,lwd=2)
 mylm5
 
-slopes <- c("NES"=unname(mylm2$coefficients[2]),
-  "ES"=unname(mylm3$coefficients[2]),
+slopes <- c("FES"=unname(mylm2$coefficients[2]),
+  "-log10 p-val"=unname(mylm3$coefficients[2]),
   "GSVA log2FC"=unname(mylm4$coefficients[2]),
   "GSVA confect"= unname(mylm5$coefficients[2]))
 
 barplot(slopes,ylab="Slope: prioritisation measure vs gene set size")
 slopes
 
-plot( log10(m$size+1), abs(m$NES) / max(abs(m$NES)),
-  xlab="log10 set size",ylab="Scaled NES",
+plot(log10(mo$size+1), abs(mo$foldEnrichment) / max( abs(mo$foldEnrichment)),
+  xlab="log10 set size",ylab="Scaled FES",
   ylim=c(0,1))
-mylm2 <- lm( abs(m$NES)/max(abs(m$NES)) ~ log10(m$size+1) )
+mylm2 <- lm( abs(mo$foldEnrichment) / max( abs(mo$foldEnrichment)) ~ log10(mo$size+1) )
 abline(mylm2,col="red",lty=2,lwd=2)
 mylm2
 
-plot( log10(m$size+1), abs(m$ES) / max(abs(m$ES)) ,
-  xlab="log10 set size",ylab="Scaled ES",
+plot(log10(mo2$size+1),-log10(mo2$pval) / max(-log10(mo2$pval)),
+  xlab="log10 set size",ylab="Scaled -log10 pval",
   ylim=c(0,1))
-mylm3 <- lm( abs(m$ES) / max(abs(m$ES)) ~ log10(m$size+1) )
+mylm3 <- lm( -log10(mo2$pval) / max(-log10(mo2$pval)) ~ log10(mo2$size+1) )
 abline(mylm3,col="red",lty=2,lwd=2)
 mylm3
 
-plot(log10(m$size+1), abs(m$effect) / max(abs(m$effect)),
-  xlab="log10 set size",ylab="Scaled effect size (log2FC)",
+plot(log10(mo2$size+1),abs(mo2$effect) / max(abs(mo2$effect)),
+  xlab="log10 set size",ylab="Scaled effect (log2FC)",
   ylim=c(0,1))
-mylm4 <- lm( abs(m$effect) / max(abs(m$effect)) ~ log10(m$size+1) )
+mylm4 <- lm( abs(mo$effect) / max( abs(mo2$effect)) ~ log10(mo$size+1) )
 abline(mylm4,col="red",lty=2,lwd=2)
 mylm4
 
-plot(log10(m2$size+1),abs(m2$confect)/max(abs(m2$confect)),
+plot(log10(mo2$size+1),abs(mo2$confect) / max(abs(mo2$confect)) ,
   xlab="log10 set size",ylab="Scaled confect",
   ylim=c(0,1))
-mylm5 <- lm( abs(m2$effect)/max(abs(m2$confect)) ~ log10(m2$size+1) )
+mylm5 <- lm( abs(mo2$effect) / max(abs(mo2$confect)) ~ log10(mo2$size+1) )
 abline(mylm5,col="red",lty=2,lwd=2)
 mylm5
 
-slopes <- c("NES"=unname(mylm2$coefficients[2]),
-  "ES"=unname(mylm3$coefficients[2]),
+slopes <- c("FES"=unname(mylm2$coefficients[2]),
+  "-log10 p-val"=unname(mylm3$coefficients[2]),
   "GSVA log2FC"=unname(mylm4$coefficients[2]),
   "GSVA confect"= unname(mylm5$coefficients[2]))
 
@@ -631,9 +724,8 @@ barplot(slopes,ylim=c(-0.1,0.2),
 
 slopes
 
-abs(slopes[1])/abs(slopes[3])
-abs(slopes[2])/abs(slopes[3])
 abs(slopes[1])/abs(slopes[4])
+abs(slopes[2])/abs(slopes[4])
 
 ```
 
