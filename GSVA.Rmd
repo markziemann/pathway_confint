@@ -535,6 +535,14 @@ points(mtop$NESrank, mtop$confect_rank,
 
 sets <- c(ftopup,ftopdn,gtopup,gtopdn)
 
+intersect(ftopup,gtopup)
+setdiff(ftopup,gtopup)
+setdiff(gtopup,ftopup)
+
+intersect(ftopdn,gtopdn)
+setdiff(ftopdn,gtopdn)
+setdiff(gtopdn,ftopdn)
+
 common <- sets[duplicated(sets)]
 
 common <- m2[which(m2$pathway %in% common),]
@@ -851,6 +859,14 @@ points(mtop$oprank, mtop$confect_rank,
   pch=10,col="magenta")
 
 sets <- c(ftopup,ftopdn,gtopup,gtopdn)
+
+intersect(ftopup,gtopup)
+setdiff(ftopup,gtopup)
+setdiff(gtopup,ftopup)
+
+intersect(ftopdn,gtopdn)
+setdiff(ftopdn,gtopdn)
+setdiff(gtopdn,ftopdn)
 
 common <- sets[duplicated(sets)]
 
