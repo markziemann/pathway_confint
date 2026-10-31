@@ -481,6 +481,75 @@ cor(m2$NESrank, m2$confect_rank)
 
 ```
 
+## Different prioritisation
+
+```{r,prioritisation}
+
+plot(m2$NESrank, m2$confect_rank,
+  xlab="FGSEA NES rank", ylab="GSVA confect")
+abline(v=0,h=0,lty=2,lwd=1)
+
+mtop <- m2[head(order(-m2$NESrank),50),]
+
+mtop |>
+  kbl(caption="Top up-regulated pathways by NES") |>
+  kable_paper("hover", full_width = F)
+
+ftopup <- mtop$pathway
+
+points(mtop$NESrank, mtop$confect_rank,
+  pch=10,col="orange")
+
+mtop <- m2[head(order(m2$NESrank),50),]
+
+mtop |>
+  kbl(caption="Top down-regulated pathways by NES") |>
+  kable_paper("hover", full_width = F)
+
+ftopdn <- mtop$pathway
+
+points(mtop$NESrank, mtop$confect_rank,
+  pch=10,col="orange")
+
+mtop <- m2[head(order(-m2$confect_rank),50),]
+
+mtop |>
+  kbl(caption="Top up-regulated pathways by confect") |>
+  kable_paper("hover", full_width = F)
+
+gtopup <- mtop$pathway
+
+points(mtop$NESrank, mtop$confect_rank,
+  pch=10,col="magenta")
+
+mtop <- m2[head(order(m2$confect_rank),50),]
+
+mtop |>
+  kbl(caption="Top down-regulated pathways by confect") |>
+  kable_paper("hover", full_width = F)
+
+gtopdn <- mtop$pathway
+
+points(mtop$NESrank, mtop$confect_rank,
+  pch=10,col="magenta")
+
+sets <- c(ftopup,ftopdn,gtopup,gtopdn)
+
+common <- sets[duplicated(sets)]
+
+common <- m2[which(m2$pathway %in% common),]
+
+points(common$NESrank, common$confect_rank,
+  pch=10,col="darkgreen")
+
+nrow(common) / length(unique(sets))
+
+length( intersect(ftopup,gtopup) ) / length( union(ftopup,gtopup) )
+
+length( intersect(ftopdn,gtopdn) ) / length( union(ftopdn,gtopdn) )
+
+```
+
 Relationship of set size and prioritisation metrics.
 
 ```{r,NESsize1}
@@ -729,35 +798,72 @@ abs(slopes[2])/abs(slopes[4])
 
 ```
 
-Table of top results prioritised by different approaches:
+## Different prioritisation ORA
 
-```{r,prioritisation}
+```{r,prioritisation_ora}
 
-head(m[order(m$confect),],20) |>
-  kbl(caption="Best down-regulated pathways by confect") |>
+plot(mo2$oprank, mo2$confect_rank,
+  xlab="FGSEA NES rank", ylab="GSVA confect")
+abline(v=0,h=0,lty=2,lwd=1)
+
+mtop <- mo2[head(order(-mo2$oprank),50),]
+
+mtop |>
+  kbl(caption="Top up-regulated pathways by ORA p-value") |>
   kable_paper("hover", full_width = F)
 
-head(m[order(-m$confect),],20) |>
-  kbl(caption="Best up-regulated pathways by confect") |>
+ftopup <- mtop$pathway
+
+points(mtop$oprank, mtop$confect_rank,
+  pch=10,col="orange")
+
+mtop <- mo2[head(order(mo2$oprank),50),]
+
+mtop |>
+  kbl(caption="Top down-regulated pathways by ORA p-value") |>
   kable_paper("hover", full_width = F)
 
-```
+ftopdn <- mtop$pathway
 
-## Compare confect to p-value
+points(mtop$oprank, mtop$confect_rank,
+  pch=10,col="orange")
 
-Directional question
+mtop <- mo2[head(order(-mo2$confect_rank),50),]
 
-Potential contradiction with logFC (GSVA) and ES (FGSEA).
-
-```{r,direction_contradiction}
-
-subset(m_sig2,adj.P.Val<0.05 & logFC < 0 & ES > 0) |>
-  kbl(caption="bottom-right pathways") |>
+mtop |>
+  kbl(caption="Top up-regulated pathways by confect") |>
   kable_paper("hover", full_width = F)
 
-subset(m_sig2,adj.P.Val<0.05 & logFC > 0 & ES < 0) |>
-  kbl(caption="top-left pathways") |>
+gtopup <- mtop$pathway
+
+points(mtop$oprank, mtop$confect_rank,
+  pch=10,col="magenta")
+
+mtop <- mo2[head(order(mo2$confect_rank),50),]
+
+mtop |>
+  kbl(caption="Top down-regulated pathways by confect") |>
   kable_paper("hover", full_width = F)
+
+gtopdn <- mtop$pathway
+
+points(mtop$oprank, mtop$confect_rank,
+  pch=10,col="magenta")
+
+sets <- c(ftopup,ftopdn,gtopup,gtopdn)
+
+common <- sets[duplicated(sets)]
+
+common <- m2[which(m2$pathway %in% common),]
+
+points(common$NESrank, common$confect_rank,
+  pch=10,col="darkgreen")
+
+nrow(common) / length(unique(sets))
+
+length( intersect(ftopup,gtopup) ) / length( union(ftopup,gtopup) )
+
+length( intersect(ftopdn,gtopdn) ) / length( union(ftopdn,gtopdn) )
 
 ```
 
