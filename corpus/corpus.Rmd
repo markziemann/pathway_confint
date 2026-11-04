@@ -1,0 +1,151 @@
+---
+title: "Confident effect sizes of pathway activity compared to FCS and ORA"
+author: "Mark Ziemann"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    fig_width: 7
+    fig_height: 7
+theme: cosmo
+---
+
+Source: https://github.com/markziemann/pathway_confint
+
+## Intro
+
+Here we want to select 100 papers that did enrichment analysis.
+We want to know:
+
+* What tool was used for enrichment
+
+* What prioritisation was reported
+
+* From the data, what type of prioritisation was done
+
+```{r,libs}
+
+library("kableExtra")
+
+```
+
+## Read PubMedCentral Data
+
+Search term: "pathway enrichment analysis" AND "RNA-seq"
+
+Years: 2021-2025
+
+Exclude embargoed
+
+5,121 results obtained.
+
+```{r,pmc_data}
+
+x <- readLines("pubmed-pathwaye.txt")
+pmid <- grep("PMID-",x)
+issn <- grep("IS  - ",x)
+combine <- c(pmid,issn)
+combine <- combine[order(combine)]
+pmid2issn <- x[combine]
+pmid2issn <- gsub("-","",pmid2issn)
+
+x2 <- lapply(grep("PMID",pmid2issn), function(i) {
+  PMID <- pmid2issn[i]
+  ISSN1 <- pmid2issn[grep(PMID,pmid2issn)+1]
+  ISSN2 <- pmid2issn[grep(PMID,pmid2issn)+2]
+  if ( ! grepl("IS",ISSN2) ) { ISSN2 <- NULL }
+  ISSN1 <- gsub("IS   ","",ISSN1)
+  ISSN2 <- gsub("IS   ","",ISSN2)
+  PMID <- gsub("PMID ","",PMID)
+  ISSN1 <- gsub("\ \\(Electronic\\)","",ISSN1)
+  ISSN1 <- gsub("\ \\(Print\\)","",ISSN1)
+  ISSN1 <- gsub("\ \\(Linking\\)","",ISSN1)
+  ISSN2 <- gsub("\ \\(Electronic\\)","",ISSN2)
+  ISSN2 <- gsub("\ \\(Print\\)","",ISSN2)
+  ISSN2 <- gsub("\ \\(Linking\\)","",ISSN2)
+  res <- c(PMID,ISSN1,ISSN2,"NA")
+  return(res[1:3])
+})
+table(unlist(lapply(x2,length)))
+
+x3 <-  do.call(rbind,x2)
+
+colnames(x3) <- c("PMID","ISSN1","ISSN2")
+
+```
+
+## Read Scimago Journal Rank Data
+
+This is the measure of journal prestige.
+
+```{r,sjr}
+
+sjr <- read.csv("scimagojr_2025.csv",sep=";")
+sjr$ISSN1 <- sapply(strsplit(sjr$Issn,", "),"[[",1)
+sjr$ISSN2 <- unlist(lapply(strsplit(sjr$Issn,", "),function(x) { x[length(x)] } ))
+
+sjr2 <- sjr[which(sjr$SJR!=""),]
+sjr2$SJR2 <- gsub(",",".",sjr2$SJR)
+sjr2$SJR2 <- as.numeric(gsub(",",".",sjr2$SJR))
+
+summary(sjr2$SJR2)
+
+```
+
+## Get SJR for each pubmed item
+
+```{r,getsjr}
+
+sjr_col <- unlist(lapply(1:nrow(x3), function(i) {
+  issn1 <- x3[i,2]
+  mysjr11 <- sjr2[which(sjr2$ISSN1==issn1),"SJR2"]
+  mysjr12 <- sjr2[which(sjr2$ISSN1==issn2),"SJR2"]
+  mysjr21 <- sjr2[which(sjr2$ISSN2==issn1),"SJR2"]
+  mysjr22 <- sjr2[which(sjr2$ISSN2==issn2),"SJR2"]
+  sjr_out <- sort(c(mysjr11,mysjr12,mysjr21,mysjr22),decreasing=TRUE)[1]
+} ) )
+
+str(sjr_col)
+dim(x3)
+x4 <- cbind(x3,sjr_col)
+x4 <- as.data.frame(x4)
+head(x4)
+
+x4$sjr_col <- as.numeric(x4$sjr_col)
+x4sort <- x4[order(-x4$sjr),]
+
+head(x4sort)
+
+```
+
+## Output table
+
+Here I output 200 papers.
+Although we only need 100, we will need to remove some based on our selection criteria:
+
+* Original research only, no reviews or opinion articles.
+
+* Needs to show real data.
+
+```{r,output_table}
+
+top <- head(x4sort,200)
+
+top |>
+ kbl(caption="Top 200 pathway papers 2021-2025") |>
+  kable_paper("hover", full_width = F)
+
+write.table(x=top,file="toppapers.tsv",sep="\t",row.names=FALSE)
+
+```
+
+## Session information
+
+For reproducibility.
+
+```{r,session}
+
+sessionInfo()
+
+```
