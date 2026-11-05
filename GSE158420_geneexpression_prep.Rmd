@@ -10,7 +10,12 @@ output:
 theme: cosmo
 ---
 
-Source: https://github.com/markziemann/background/
+Source: https://github.com/markziemann/pathway_confint
+
+## Purpose
+
+The purpose of this script is to prepare GSE158420 lung cancer gene expression
+dataset and save the rds file called: GSE158420_counts_fixed.rds.
 
 ## Libs
 
