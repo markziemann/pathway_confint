@@ -1006,7 +1006,7 @@ setdiff(gtopdn,ftopdn)
 
 common <- sets[duplicated(sets)]
 
-common <- m2[which(m2$pathway %in% common),]
+common <- mo2[which(m2$pathway %in% common),]
 
 points(common$oprank, common$confect_rank,
   pch=10,col="darkgreen")
