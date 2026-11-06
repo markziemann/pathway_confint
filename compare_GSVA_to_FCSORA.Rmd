@@ -428,6 +428,7 @@ m2 <- m[!is.na(m$confect),]
 
 m2$fprank <- rank( sign(m2$ES)*-log10(m2$pval) ) - table(sign(m2$ES)*-log10(m2$pval)>0)[1]
 m2$NESrank <- rank(m2$NES)-table(m2$NES>0)[1]
+m2$ESrank <- rank(m2$ES)-table(m2$ES>0)[1]
 m2$confect_rank <- rank(m2$confect) - table(m2$confect>0)[1]
 m2$prankdiff <- abs(m2$fprank - m2$confect_rank)
 m2$rankdiff <- abs(m2$NESrank - m2$confect_rank)
@@ -497,6 +498,8 @@ cor(m2$NESrank, m2$confect_rank)
 This analysis shows that the top 50 pathways with each prioritisation approach is very different.
 In the comparison of GSVA confects and FGSEA NES scores, only 25% of top-50 upregulated pathways are
 common, while for downregulated gene sets this overlap was 19%.
+
+First we look at NES prioritisation.
 
 ```{r,NESprioritisation}
 
@@ -572,6 +575,97 @@ length( intersect(ftopup,gtopup) ) / length( union(ftopup,gtopup) )
 length( intersect(ftopdn,gtopdn) ) / length( union(ftopdn,gtopdn) )
 
 ```
+
+Now, look at ES prioritisation.
+
+```{r,ESprioritisation}
+
+plot(m2$ESrank, m2$confect_rank,
+  xlab="FGSEA ES rank", ylab="GSVA confect rank")
+abline(v=0,h=0,lty=2,lwd=1)
+
+mtop <- m2[head(order(-m2$ESrank),50),]
+
+mtop |>
+  kbl(caption="Top up-regulated pathways by ES") |>
+  kable_paper("hover", full_width = F)
+
+ftopup <- mtop$pathway
+
+points(mtop$ESrank, mtop$confect_rank,
+  pch=10,col="orange")
+
+mtop <- m2[head(order(m2$ESrank),50),]
+
+mtop |>
+  kbl(caption="Top down-regulated pathways by ES") |>
+  kable_paper("hover", full_width = F)
+
+ftopdn <- mtop$pathway
+
+points(mtop$ESrank, mtop$confect_rank,
+  pch=10,col="orange")
+
+mtop <- m2[head(order(-m2$confect_rank),50),]
+
+mtop |>
+  kbl(caption="Top up-regulated pathways by confect") |>
+  kable_paper("hover", full_width = F)
+
+gtopup <- mtop$pathway
+
+points(mtop$ESrank, mtop$confect_rank,
+  pch=10,col="magenta")
+
+mtop <- m2[head(order(m2$confect_rank),50),]
+
+mtop |>
+  kbl(caption="Top down-regulated pathways by confect") |>
+  kable_paper("hover", full_width = F)
+
+gtopdn <- mtop$pathway
+
+points(mtop$ESrank, mtop$confect_rank,
+  pch=10,col="magenta")
+
+sets <- c(ftopup,ftopdn,gtopup,gtopdn)
+
+intersect(ftopup,gtopup)
+setdiff(ftopup,gtopup)
+setdiff(gtopup,ftopup)
+
+intersect(ftopdn,gtopdn)
+setdiff(ftopdn,gtopdn)
+setdiff(gtopdn,ftopdn)
+
+common <- sets[duplicated(sets)]
+
+common <- m2[which(m2$pathway %in% common),]
+
+points(common$ESrank, common$confect_rank,
+  pch=10,col="darkgreen")
+
+nrow(common) / length(unique(sets))
+
+length( intersect(ftopup,gtopup) ) / length( union(ftopup,gtopup) )
+
+length( intersect(ftopdn,gtopdn) ) / length( union(ftopdn,gtopdn) )
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 Now compare FGSEA p-value rank prioritisation to GSVA confect rank prioritisation.
 
