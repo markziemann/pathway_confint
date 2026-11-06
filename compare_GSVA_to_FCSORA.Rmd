@@ -1068,7 +1068,7 @@ summary(mylm6)
 # set size versus absolute GSVA confect
 plot(log10(m2$size+1),abs(m2$confect),xlab="log10 set size",ylab="Confect")
 cor(log10(m2$size+1),abs(m2$confect))
-mylm7 <- lm( abs(m2$effect) ~ log10(m2$size+1) )
+mylm7 <- lm( abs(m2$confect) ~ log10(m2$size+1) )
 abline(mylm7,col="red",lty=2,lwd=2)
 summary(mylm7)
 
