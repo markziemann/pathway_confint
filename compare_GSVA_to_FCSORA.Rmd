@@ -26,6 +26,7 @@ Source: https://github.com/markziemann/pathway_confint
   library("topconfects")
   library("fgsea")
   library("eulerr")
+  library("DESeq2")
 
 ```
 
@@ -115,33 +116,11 @@ head(ss)
 
 ```
 
-## Differential expression with edgeR
+## Differential pathway level expression with limma
 
-No adjustment for patient-of-origin effects.
+Here, we adjust for patient-of-origin effects.
 
-```{r,edgeR1}
-
-design <- model.matrix(~ tumor, data = ss)
-
-fit <- limma::lmFit(scores, design)
-fit <- limma::eBayes(fit)
-
-results <- limma::topTable(
-    fit,
-    coef = "tumorTRUE",
-    number = Inf,
-    adjust.method = "BH"
-)
-
-head(results,10) |>
-  kbl(caption="Top GSVA-limma results without sample pairing") |>
-  kable_paper("hover", full_width = F)
-
-```
-
-Now with adjustment.
-
-```{r,edgeR2}
+```{r,limma1}
 
 design <- model.matrix(~ patient + tumor, data = ss)
 
@@ -159,13 +138,14 @@ head(results,10) |>
   kbl(caption="Top GSVA-limma results with sample pairing") |>
   kable_paper("hover", full_width = F)
 
-
 gsva_up <- rownames(subset(results,logFC>0 & adj.P.Val < 0.05))
 gsva_dn <- rownames(subset(results,logFC<0 & adj.P.Val < 0.05))
 
 ```
 
 ## Topconfects
+
+Use topconfects to calculate the confidence intervals for pathways.
 
 ```{r,topconfect_pw}
 
@@ -213,7 +193,6 @@ plot(m0$logFC, -log10(m0$P.Value) )
 
 Compare topconfects and GSVA-limma.
 
-
 ```{r,beeswarm1}
 
 par(mfrow=c(3,3))
@@ -232,23 +211,33 @@ par(mfrow=c(1,1))
 
 ```
 
+## DESeq2
+
+Run DESeq2 because it is considered a very accurate DE tool to input to ORA and FCS analysis.
+
+
+```{r,deseq2}
+
+xf <- x[which(rowMeans(x)>=5),]
+dim(x)
+dim(xf)
+
+dds <- DESeqDataSetFromMatrix(countData = xf , colData=ss, design = ~ patient + tumor)
+res <- DESeq(dds)
+z <- results(res)
+vsd <- vst(dds, blind=FALSE)
+zz <- cbind(as.data.frame(z),assay(vsd))
+dge <- as.data.frame(zz[order(zz$pvalue),])
+dge[1:6,1:6]
+
+```
+
 ## FCS
 
 ```{r,fcs}
 
-design <- model.matrix(~ patient + tumor, data = ss)
-
-y <- DGEList(counts = x)
-keep <- filterByExpr(y,group=ss$tumor)
-y <- y[keep, , keep.lib.sizes = FALSE]
-y <- calcNormFactors(y, method = "TMM")
-y <- estimateDisp(y, design)
-fit <- glmQLFit(y, design)
-qlf <- glmQLFTest(fit, coef = "tumorTRUE")
-res <- topTags(qlf, n = Inf)$table
-
-fcs_score <- -log10(res$PValue) * sign(res$logFC)
-names(fcs_score) <- rownames(res)
+fcs_score <- dge$stat
+names(fcs_score) <- rownames(dge)
 
 summary(fcs_score)
 
@@ -291,15 +280,19 @@ f_dn <- subset(fres_sig,ES<0&padj<0.05)$pathway
 
 ```{r,ora1}
 
-upgenes <- rownames(subset(res,logFC>0 & FDR<0.05))
-dngenes <- rownames(subset(res,logFC<0 & FDR<0.05))
-bg <- rownames(res)
+upgenes <- head(rownames(subset(dge,log2FoldChange>0 & padj<0.05)),1000)
+dngenes <- head(rownames(subset(dge,log2FoldChange<0 & padj<0.05)),1000)
+
+bg <- rownames(dge)
 
 ores_up <- fora(pathways=gs,genes=upgenes,universe=bg,minSize=5)
 ores_dn <- fora(pathways=gs,genes=dngenes,universe=bg,minSize=5)
 
 o_up <- subset(ores_up,padj<0.05)$pathway
 o_dn <- subset(ores_dn,padj<0.05)$pathway
+
+str(o_up)
+str(o_dn)
 
 ```
 
@@ -313,29 +306,47 @@ jaccard <- function(x,y) {
 
 jaccard(gsva_up,tcup)
 
-
 # GSVA vs FCS
-v1 <- list("GSVA_up"=gsva_up, "GSVA_dn"=gsva_dn,
-  "FCS_up"=f_up,"FCS_dn"=f_dn)
+v1 <- list("GSVA up"=gsva_up, "GSVA dn"=gsva_dn,
+  "FCS up"=f_up,"FCS dn"=f_dn)
 
 plot(euler(v1),quantities = TRUE)
 
 # ORA vs FCS
-v1 <- list("ORA_up"=o_up, "ORA_dn"=o_dn,
-  "FCS_up"=f_up,"FCS_dn"=f_dn)
+v1 <- list("ORA up"=o_up, "ORA dn"=o_dn,
+  "FCS up"=f_up,"FCS dn"=f_dn)
 
 plot(euler(v1),quantities = TRUE)
 
 # GSVA vs ORA
-v1 <- list("GSVA_up"=gsva_up, "GSVA_dn"=gsva_dn,
-  "ORA_up"=o_up,"ORA_dn"=o_dn)
+v1 <- list("GSVA up"=gsva_up, "GSVA dn"=gsva_dn,
+  "ORA up"=o_up,"ORA dn"=o_dn)
 
 plot(euler(v1),quantities = TRUE)
 
 # Compare all
-v1 <- list("GSVA_up"=gsva_up, "GSVA_dn"=gsva_dn,
-  "FCS_up"=f_up,"FCS_dn"=f_dn,
-  "ORA_up"=o_up,"ORA_dn"=o_dn)
+v1 <- list("GSVA up"=gsva_up, "GSVA dn"=gsva_dn,
+  "FCS up"=f_up, "FCS dn"=f_dn,
+  "ORA up"=o_up, "ORA dn"=o_dn)
+
+plot(euler(v1),quantities = TRUE)
+
+# Compare up
+v1 <- list("GSVA up"=gsva_up, "FCS up"=f_up, "ORA up"=o_up)
+plot(euler(v1),quantities = TRUE,main="Up-regulated pathways")
+
+# Compare dn
+v1 <- list("GSVA dn"=gsva_dn, "FCS dn"=f_dn, "ORA dn"=o_dn)
+plot(euler(v1),quantities = TRUE,main="Down-regulated pathways")
+
+# up and down results
+gsva_pw <- c(paste(gsva_up,"up"),paste(gsva_dn,"down") )
+fcs_pw <- c(paste(f_up,"up"),paste(f_dn,"down") )
+ora_pw <- c(paste(o_up,"up"),paste(o_dn,"down") )
+
+v1 <- list("GSVA"=gsva_pw,
+  "FCS"=fcs_pw,
+  "ORA"=ora_pw)
 
 plot(euler(v1),quantities = TRUE)
 
@@ -422,14 +433,14 @@ m2$prankdiff <- abs(m2$fprank - m2$confect_rank)
 m2$rankdiff <- abs(m2$NESrank - m2$confect_rank)
 
 plot( m2$fprank, m2$confect_rank,
-  xlab="Signed p-value rank",
+  xlab="Signed FGSEA p-value rank",
   ylab="Signed confect rank")
 abline(v=0,h=0,lty=2,lwd=1)
 
 discrepant0 <- subset(m2,prankdiff>300)
 
 plot( m2$fprank, m2$confect_rank,
-  xlab="Signed p-value rank",
+  xlab="Signed FGSEA p-value rank",
   ylab="Signed confect rank")
 abline(v=0,h=0,lty=2,lwd=1)
 
@@ -483,10 +494,14 @@ cor(m2$NESrank, m2$confect_rank)
 
 ## Different prioritisation
 
-```{r,prioritisation}
+This analysis shows that the top 50 pathways with each prioritisation approach is very different.
+In the comparison of GSVA confects and FGSEA NES scores, only 25% of top-50 upregulated pathways are
+common, while for downregulated gene sets this overlap was 19%.
+
+```{r,NESprioritisation}
 
 plot(m2$NESrank, m2$confect_rank,
-  xlab="FGSEA NES rank", ylab="GSVA confect")
+  xlab="FGSEA NES rank", ylab="GSVA confect rank")
 abline(v=0,h=0,lty=2,lwd=1)
 
 mtop <- m2[head(order(-m2$NESrank),50),]
@@ -558,100 +573,92 @@ length( intersect(ftopdn,gtopdn) ) / length( union(ftopdn,gtopdn) )
 
 ```
 
-Relationship of set size and prioritisation metrics.
+Now compare FGSEA p-value rank prioritisation to GSVA confect rank prioritisation.
 
-```{r,NESsize1}
+The jaccard index was 11% in both up and down directions.
 
-plot(log10(m2$size+1),abs(m2$ES),xlab="log10 set size",ylab="Absolute ES")
-mylm1 <- lm( abs(m2$ES) ~ log10(m2$size+1) )
-abline(mylm1,col="red",lty=2,lwd=2)
-mylm1
+```{r,FGSEA_p_prioritisation}
 
-plot(log10(m2$size+1),abs(m2$NES),xlab="log10 set size",ylab="Absolute NES")
-mylm2 <- lm( abs(m2$NES) ~ log10(m2$size+1) )
-abline(mylm2,col="red",lty=2,lwd=2)
-mylm2
+plot(m2$fprank , m2$confect_rank,
+  xlab="FGSEA p-value rank", ylab="GSVA confect rank")
+abline(v=0,h=0,lty=2,lwd=1)
 
-plot(log10(m2$size+1),-log10(m2$pval),xlab="log10 set size",ylab="-log10 pval")
-mylm3 <- lm( -log10(m2$pval) ~ log10(m2$size+1) )
-abline(mylm3,col="red",lty=2,lwd=2)
-mylm3
+mtop <- m2[head(order(-m2$fprank),50),]
 
-plot(log10(m2$size+1),abs(m2$effect),xlab="log10 set size",ylab="Estimated effect (log2FC)")
-mylm4 <- lm( abs(m2$effect) ~ log10(m2$size+1) )
-abline(mylm4,col="red",lty=2,lwd=2)
-mylm4
+mtop |>
+  kbl(caption="Top up-regulated pathways by FGSEA p-value") |>
+  kable_paper("hover", full_width = F)
 
-plot(log10(m2$size+1),abs(m2$confect),xlab="log10 set size",ylab="Confect")
-mylm5 <- lm( abs(m2$effect) ~ log10(m2$size+1) )
-abline(mylm5,col="red",lty=2,lwd=2)
-mylm5
+ftopup <- mtop$pathway
 
-slopes <- c("ES"=unname(mylm1$coefficients[2]),
-  "NES"=unname(mylm2$coefficients[2]),
-  "-log10 p-val"=unname(mylm3$coefficients[2]),
-  "GSVA log2FC"=unname(mylm4$coefficients[2]),
-  "GSVA confect"= unname(mylm5$coefficients[2]))
+points(mtop$fprank, mtop$confect_rank,
+  pch=10,col="orange")
 
-barplot(slopes,ylab="Slope: prioritisation measure vs gene set size")
-slopes
+mtop <- m2[head(order(m2$fprank),50),]
 
-plot(log10(m2$size+1),abs(m2$ES) / max(abs(m$ES)),
-  xlab="log10 set size",ylab="Absolute ES",
-  ylim=c(0,1))
-mylm1 <- lm( abs(m2$ES) / max(abs(m$ES)) ~ log10(m2$size+1) )
-abline(mylm1,col="red",lty=2,lwd=2)
-mylm1
+mtop |>
+  kbl(caption="Top down-regulated pathways by FGSEA p-value") |>
+  kable_paper("hover", full_width = F)
 
-plot(log10(m2$size+1),abs(m2$NES) / max(abs(m$NES)),
-  xlab="log10 set size",ylab="Absolute NES",
-  ylim=c(0,1))
-mylm2 <- lm( abs(m2$NES) / max(abs(m$NES)) ~ log10(m2$size+1) )
-abline(mylm2,col="red",lty=2,lwd=2)
-mylm2
+ftopdn <- mtop$pathway
 
-plot(log10(m2$size+1),-log10(m2$pval) / max(-log10(m2$pval)) ,
-  xlab="log10 set size",ylab="-log10 pval",
-  ylim=c(0,1))
-mylm3 <- lm( -log10(m2$pval)/ max(-log10(m2$pval)) ~ log10(m2$size+1) )
-abline(mylm3,col="red",lty=2,lwd=2)
-mylm3
+points(mtop$fprank, mtop$confect_rank,
+  pch=10,col="orange")
 
-plot(log10(m2$size+1),abs(m2$effect) / max(abs(m2$effect)),
-  xlab="log10 set size",ylab="Estimated effect (log2FC)",
-  ylim=c(0,1))
-mylm4 <- lm( abs(m2$effect) / max(abs(m2$effect)) ~ log10(m2$size+1) )
-abline(mylm4,col="red",lty=2,lwd=2)
-mylm4
+mtop <- m2[head(order(-m2$confect_rank),50),]
 
-plot(log10(m2$size+1), abs(m2$confect) / max(abs(m2$confect)),
-  xlab="log10 set size",ylab="Confect",
-  ylim=c(0,1))
-mylm5 <- lm( abs(m2$effect)/max(abs(m2$confect)) ~ log10(m2$size+1) )
-abline(mylm5,col="red",lty=2,lwd=2)
-mylm5
+mtop |>
+  kbl(caption="Top up-regulated pathways by confect") |>
+  kable_paper("hover", full_width = F)
 
-slopes <- c( "ES"=unname(mylm1$coefficients[2]),
-  "NES"=unname(mylm2$coefficients[2]),
-  "-log10 p-val"=unname(mylm3$coefficients[2]),
-  "GSVA log2FC"=unname(mylm4$coefficients[2]),
-  "GSVA confect"= unname(mylm5$coefficients[2]))
+gtopup <- mtop$pathway
 
-barplot(slopes,ylim=c(-0.1,0.2),
-  ylab="Scaled slope: prioritisation measure vs gene set size")
+points(mtop$NESrank, mtop$confect_rank,
+  pch=10,col="magenta")
 
-slopes
+mtop <- m2[head(order(m2$confect_rank),50),]
 
-abs(slopes[1])/abs(slopes[5])
-abs(slopes[2])/abs(slopes[5])
-abs(slopes[3])/abs(slopes[5])
-abs(slopes[4])/abs(slopes[5])
+mtop |>
+  kbl(caption="Top down-regulated pathways by confect") |>
+  kable_paper("hover", full_width = F)
+
+gtopdn <- mtop$pathway
+
+points(mtop$NESrank, mtop$confect_rank,
+  pch=10,col="magenta")
+
+sets <- c(ftopup,ftopdn,gtopup,gtopdn)
+
+intersect(ftopup,gtopup)
+setdiff(ftopup,gtopup)
+setdiff(gtopup,ftopup)
+
+intersect(ftopdn,gtopdn)
+setdiff(ftopdn,gtopdn)
+setdiff(gtopdn,ftopdn)
+
+common <- sets[duplicated(sets)]
+
+common <- m2[which(m2$pathway %in% common),]
+
+points(common$NESrank, common$confect_rank,
+  pch=10,col="darkgreen")
+
+nrow(common) / length(unique(sets))
+
+length( intersect(ftopup,gtopup) ) / length( union(ftopup,gtopup) )
+
+length( intersect(ftopdn,gtopdn) ) / length( union(ftopdn,gtopdn) )
 
 ```
 
 ## Compare confect to ORA
 
-GSVA vs ORA
+GSVA vs ORA shows that ORA didn't work very well.
+
+Therefore I will exclude ORA from downstream analysis
+
+The first chart will compare ORA p-value rank with GSVA confect.
 
 ```{r,scatter3}
 
@@ -709,100 +716,215 @@ plot( mo2$oprank, mo2$confect_rank,
   ylab="Signed GSVA confect rank")
 abline(v=0,h=0,lty=2,lwd=1)
 
-discrepant0 <- subset(mo2,orankdiff>300)
+mtop <- mo2[head(order(-mo2$oprank),50),]
 
-plot( mo2$oprank, mo2$confect_rank,
-  xlab="Signed ORA p-value rank",
-  ylab="Signed GSVA confect rank")
-abline(v=0,h=0,lty=2,lwd=1)
+mtop |>
+  kbl(caption="Top up-regulated pathways by ORA p-value") |>
+  kable_paper("hover", full_width = F)
 
-points(discrepant0$oprank, discrepant0$confect_rank,
+otopup <- mtop$pathway
+
+points(mtop$oprank, mtop$confect_rank,
   pch=10,col="orange")
 
-summary(discrepant0$size)
-summary(mo2$size)
+mtop <- mo2[head(order(mo2$oprank),50),]
+
+mtop |>
+  kbl(caption="Top down-regulated pathways by ORA p-value") |>
+  kable_paper("hover", full_width = F)
+
+otopdn <- mtop$pathway
+
+points(mtop$oprank, mtop$confect_rank,
+  pch=10,col="orange")
+
+mtop <- mo2[head(order(-mo2$confect_rank),50),]
+
+mtop |>
+  kbl(caption="Top up-regulated pathways by confect") |>
+  kable_paper("hover", full_width = F)
+
+gtopup <- mtop$pathway
+
+points(mtop$oprank, mtop$confect_rank,
+  pch=10,col="magenta")
+
+mtop <- mo2[head(order(mo2$confect_rank),50),]
+
+mtop |>
+  kbl(caption="Top down-regulated pathways by confect") |>
+  kable_paper("hover", full_width = F)
+
+gtopdn <- mtop$pathway
+
+points(mtop$oprank, mtop$confect_rank,
+  pch=10,col="magenta")
+
+sets <- c(otopup,otopdn,gtopup,gtopdn)
+
+intersect(otopup,gtopup)
+setdiff(otopup,gtopup)
+setdiff(gtopup,otopup)
+
+intersect(otopdn,gtopdn)
+setdiff(otopdn,gtopdn)
+setdiff(gtopdn,otopdn)
+
+common <- sets[duplicated(sets)]
+
+common <- mo2[which(mo2$pathway %in% common),]
+
+points(common$oprank, common$confect_rank,
+  pch=10,col="darkgreen")
+
+nrow(common) / length(unique(sets))
+
+length( intersect(otopup,gtopup) ) / length( union(otopup,gtopup) )
+
+length( intersect(otopdn,gtopdn) ) / length( union(otopdn,gtopdn) )
+
+```
+
+The next chart will compare ORA FES rank with GSVA confect.
+
+```{r,scatter4}
 
 plot(mo2$FESrank, mo2$confect_rank,
   xlab="ORA FES rank", ylab="GSVA confect rank")
 abline(v=0,h=0,lty=2,lwd=1)
 
-hist(mo2$rankdiff)
-nrow(subset(mo2,rankdiff>300))
+mtop <- mo2[head(order(-mo2$FESrank),50),]
+
+mtop |>
+  kbl(caption="Top up-regulated pathways by ORA FES") |>
+  kable_paper("hover", full_width = F)
+
+otopup <- mtop$pathway
+
+points(mtop$FESrank, mtop$confect_rank,
+  pch=10,col="orange")
+
+mtop <- mo2[head(order(mo2$FESrank),50),]
+
+mtop |>
+  kbl(caption="Top down-regulated pathways by ORA FES") |>
+  kable_paper("hover", full_width = F)
+
+otopdn <- mtop$pathway
+
+points(mtop$FESrank, mtop$confect_rank,
+  pch=10,col="orange")
+
+mtop <- mo2[head(order(-mo2$confect_rank),50),]
+
+mtop |>
+  kbl(caption="Top up-regulated pathways by confect") |>
+  kable_paper("hover", full_width = F)
+
+gtopup <- mtop$pathway
+
+points(mtop$oprank, mtop$confect_rank,
+  pch=10,col="magenta")
+
+mtop <- mo2[head(order(mo2$confect_rank),50),]
+
+mtop |>
+  kbl(caption="Top down-regulated pathways by confect") |>
+  kable_paper("hover", full_width = F)
+
+gtopdn <- mtop$pathway
+
+points(mtop$oprank, mtop$confect_rank,
+  pch=10,col="magenta")
+
+sets <- c(otopup,otopdn,gtopup,gtopdn)
+
+intersect(otopup,gtopup)
+setdiff(otopup,gtopup)
+setdiff(gtopup,otopup)
+
+intersect(otopdn,gtopdn)
+setdiff(otopdn,gtopdn)
+setdiff(gtopdn,otopdn)
+
+common <- sets[duplicated(sets)]
+
+common <- mo2[which(mo2$pathway %in% common),]
+
+points(common$oprank, common$confect_rank,
+  pch=10,col="darkgreen")
+
+nrow(common) / length(unique(sets))
+
+length( intersect(otopup,gtopup) ) / length( union(otopup,gtopup) )
+
+length( intersect(otopdn,gtopdn) ) / length( union(otopdn,gtopdn) )
 
 ```
 
-Relationship of set size and NES.
+## Relationship of set size and prioritisation metrics.
 
-```{r,NESsize2}
+```{r,NESsize1}
 
-plot(log10(mo$size+1),abs(mo$foldEnrichment),xlab="log10 set size",ylab="Absolute FES")
-mylm2 <- lm( abs(mo$foldEnrichment) ~ log10(mo$size+1) )
+plot(log10(m2$size+1),abs(m2$ES),xlab="log10 set size",ylab="Absolute ES")
+cor(log10(m2$size+1),abs(m2$ES))
+mylm1 <- lm( abs(m2$ES) ~ log10(m2$size+1) )
+abline(mylm1,col="red",lty=2,lwd=2)
+summary(mylm1)
+
+plot(log10(m2$size+1),abs(m2$NES),xlab="log10 set size",ylab="Absolute NES")
+cor(log10(m2$size+1),abs(m2$NES))
+mylm2 <- lm( abs(m2$NES) ~ log10(m2$size+1) )
 abline(mylm2,col="red",lty=2,lwd=2)
-mylm2
+summary(mylm2)
 
-plot(log10(mo2$size+1),-log10(mo2$pval),xlab="log10 set size",ylab="-log10 pval")
-mylm3 <- lm( -log10(mo2$pval) ~ log10(mo2$size+1) )
+plot(log10(m2$size+1),-log10(m2$pval),xlab="log10 set size",ylab="-log10 pval")
+cor( log10(m2$size+1),-log10(m2$pval) )
+mylm3 <- lm( -log10(m2$pval) ~ log10(m2$size+1) )
 abline(mylm3,col="red",lty=2,lwd=2)
-mylm3
+summary(mylm3)
 
-plot(log10(mo2$size+1),abs(mo2$effect),xlab="log10 set size",ylab="Estimated effect (log2FC)")
-mylm4 <- lm( abs(mo$effect) ~ log10(mo$size+1) )
+plot(log10(m2$size+1),abs(m2$effect),xlab="log10 set size",ylab="Estimated effect (log2FC)")
+cor(log10(m2$size+1),abs(m2$effect))
+mylm4 <- lm( abs(m2$effect) ~ log10(m2$size+1) )
 abline(mylm4,col="red",lty=2,lwd=2)
-mylm4
+summary(mylm4)
 
-plot(log10(mo2$size+1),abs(mo2$confect),xlab="log10 set size",ylab="Confect")
-mylm5 <- lm( abs(mo2$effect) ~ log10(mo2$size+1) )
+plot(log10(m2$size+1),abs(m2$confect),xlab="log10 set size",ylab="Confect")
+cor(log10(m2$size+1),abs(m2$confect))
+mylm5 <- lm( abs(m2$effect) ~ log10(m2$size+1) )
 abline(mylm5,col="red",lty=2,lwd=2)
-mylm5
+summary(mylm5)
 
-slopes <- c("FES"=unname(mylm2$coefficients[2]),
-  "-log10 p-val"=unname(mylm3$coefficients[2]),
-  "GSVA log2FC"=unname(mylm4$coefficients[2]),
-  "GSVA confect"= unname(mylm5$coefficients[2]))
+rsquared <- c("ES"=summary(mylm1)$r.squared,
+  "NES"=summary(mylm2)$r.squared,
+  "-log10 p-val"=summary(mylm3)$r.squared,
+  "GSVA effect"=summary(mylm4)$r.squared,
+  "GSVA confect"= summary(mylm5)$r.squared)
 
-barplot(slopes,ylab="Slope: prioritisation measure vs gene set size")
-slopes
+barplot(rsquared,
+  main="Impact of gene set size on prioritisation measure",
+  ylab="r-squared value",
+  ylim=c(0,0.3))
 
-plot(log10(mo$size+1), abs(mo$foldEnrichment) / max( abs(mo$foldEnrichment)),
-  xlab="log10 set size",ylab="Scaled FES",
-  ylim=c(0,1))
-mylm2 <- lm( abs(mo$foldEnrichment) / max( abs(mo$foldEnrichment)) ~ log10(mo$size+1) )
-abline(mylm2,col="red",lty=2,lwd=2)
-mylm2
+text(x=(1:length(rsquared)*1.17)-0.4,y=rsquared+0.01,labels=signif(rsquared,2))
 
-plot(log10(mo2$size+1),-log10(mo2$pval) / max(-log10(mo2$pval)),
-  xlab="log10 set size",ylab="Scaled -log10 pval",
-  ylim=c(0,1))
-mylm3 <- lm( -log10(mo2$pval) / max(-log10(mo2$pval)) ~ log10(mo2$size+1) )
-abline(mylm3,col="red",lty=2,lwd=2)
-mylm3
+rsquared
 
-plot(log10(mo2$size+1),abs(mo2$effect) / max(abs(mo2$effect)),
-  xlab="log10 set size",ylab="Scaled effect (log2FC)",
-  ylim=c(0,1))
-mylm4 <- lm( abs(mo$effect) / max( abs(mo2$effect)) ~ log10(mo$size+1) )
-abline(mylm4,col="red",lty=2,lwd=2)
-mylm4
+rvals <- c("ES"=cor(log10(m2$size+1),abs(m2$ES)),
+  "NES"=cor(log10(m2$size+1),abs(m2$NES)),
+  "-log10 p-val"=cor(log10(m2$size+1),-log10(m2$pval)),
+  "GSVA effect"=cor(log10(m2$size+1),abs(m2$effect)),
+  "GSVA confect"=cor(log10(m2$size+1),abs(m2$confect)))
 
-plot(log10(mo2$size+1),abs(mo2$confect) / max(abs(mo2$confect)) ,
-  xlab="log10 set size",ylab="Scaled confect",
-  ylim=c(0,1))
-mylm5 <- lm( abs(mo2$effect) / max(abs(mo2$confect)) ~ log10(mo2$size+1) )
-abline(mylm5,col="red",lty=2,lwd=2)
-mylm5
+barplot(rvals,
+  main="Impact of gene set size on prioritisation measure",
+  ylab="r value",
+  ylim=c(-0.4,0.6))
 
-slopes <- c("FES"=unname(mylm2$coefficients[2]),
-  "-log10 p-val"=unname(mylm3$coefficients[2]),
-  "GSVA log2FC"=unname(mylm4$coefficients[2]),
-  "GSVA confect"= unname(mylm5$coefficients[2]))
+text(x=(1:length(rvals)*1.17)-0.4,y=rvals*1.1,labels=signif(rvals,2))
 
-barplot(slopes,ylim=c(-0.1,0.2),
-  ylab="Scaled slope: prioritisation measure vs gene set size")
-
-slopes
-
-abs(slopes[1])/abs(slopes[4])
-abs(slopes[2])/abs(slopes[4])
+rvals
 
 ```
 
@@ -811,7 +933,7 @@ abs(slopes[2])/abs(slopes[4])
 ```{r,prioritisation_ora}
 
 plot(mo2$oprank, mo2$confect_rank,
-  xlab="FGSEA NES rank", ylab="GSVA confect")
+  xlab="ORA p-value rank", ylab="GSVA confect")
 abline(v=0,h=0,lty=2,lwd=1)
 
 mtop <- mo2[head(order(-mo2$oprank),50),]
