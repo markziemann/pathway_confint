@@ -653,20 +653,6 @@ length( intersect(ftopdn,gtopdn) ) / length( union(ftopdn,gtopdn) )
 
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 Now compare FGSEA p-value rank prioritisation to GSVA confect rank prioritisation.
 
 The jaccard index was 11% in both up and down directions.
@@ -707,7 +693,7 @@ mtop |>
 
 gtopup <- mtop$pathway
 
-points(mtop$NESrank, mtop$confect_rank,
+points(mtop$fprank, mtop$confect_rank,
   pch=10,col="magenta")
 
 mtop <- m2[head(order(m2$confect_rank),50),]
@@ -718,7 +704,7 @@ mtop |>
 
 gtopdn <- mtop$pathway
 
-points(mtop$NESrank, mtop$confect_rank,
+points(mtop$fprank, mtop$confect_rank,
   pch=10,col="magenta")
 
 sets <- c(ftopup,ftopdn,gtopup,gtopdn)
@@ -735,7 +721,7 @@ common <- sets[duplicated(sets)]
 
 common <- m2[which(m2$pathway %in% common),]
 
-points(common$NESrank, common$confect_rank,
+points(common$fprank, common$confect_rank,
   pch=10,col="darkgreen")
 
 nrow(common) / length(unique(sets))
@@ -917,7 +903,7 @@ mtop |>
 
 gtopup <- mtop$pathway
 
-points(mtop$oprank, mtop$confect_rank,
+points(mtop$FESrank, mtop$confect_rank,
   pch=10,col="magenta")
 
 mtop <- mo2[head(order(mo2$confect_rank),50),]
@@ -928,7 +914,7 @@ mtop |>
 
 gtopdn <- mtop$pathway
 
-points(mtop$oprank, mtop$confect_rank,
+points(mtop$FESrank, mtop$confect_rank,
   pch=10,col="magenta")
 
 sets <- c(otopup,otopdn,gtopup,gtopdn)
@@ -945,7 +931,7 @@ common <- sets[duplicated(sets)]
 
 common <- mo2[which(mo2$pathway %in% common),]
 
-points(common$oprank, common$confect_rank,
+points(common$FESrank, common$confect_rank,
   pch=10,col="darkgreen")
 
 nrow(common) / length(unique(sets))
@@ -953,72 +939,6 @@ nrow(common) / length(unique(sets))
 length( intersect(otopup,gtopup) ) / length( union(otopup,gtopup) )
 
 length( intersect(otopdn,gtopdn) ) / length( union(otopdn,gtopdn) )
-
-```
-
-## Relationship of set size and prioritisation metrics.
-
-```{r,NESsize1}
-
-plot(log10(m2$size+1),abs(m2$ES),xlab="log10 set size",ylab="Absolute ES")
-cor(log10(m2$size+1),abs(m2$ES))
-mylm1 <- lm( abs(m2$ES) ~ log10(m2$size+1) )
-abline(mylm1,col="red",lty=2,lwd=2)
-summary(mylm1)
-
-plot(log10(m2$size+1),abs(m2$NES),xlab="log10 set size",ylab="Absolute NES")
-cor(log10(m2$size+1),abs(m2$NES))
-mylm2 <- lm( abs(m2$NES) ~ log10(m2$size+1) )
-abline(mylm2,col="red",lty=2,lwd=2)
-summary(mylm2)
-
-plot(log10(m2$size+1),-log10(m2$pval),xlab="log10 set size",ylab="-log10 pval")
-cor( log10(m2$size+1),-log10(m2$pval) )
-mylm3 <- lm( -log10(m2$pval) ~ log10(m2$size+1) )
-abline(mylm3,col="red",lty=2,lwd=2)
-summary(mylm3)
-
-plot(log10(m2$size+1),abs(m2$effect),xlab="log10 set size",ylab="Estimated effect (log2FC)")
-cor(log10(m2$size+1),abs(m2$effect))
-mylm4 <- lm( abs(m2$effect) ~ log10(m2$size+1) )
-abline(mylm4,col="red",lty=2,lwd=2)
-summary(mylm4)
-
-plot(log10(m2$size+1),abs(m2$confect),xlab="log10 set size",ylab="Confect")
-cor(log10(m2$size+1),abs(m2$confect))
-mylm5 <- lm( abs(m2$effect) ~ log10(m2$size+1) )
-abline(mylm5,col="red",lty=2,lwd=2)
-summary(mylm5)
-
-rsquared <- c("ES"=summary(mylm1)$r.squared,
-  "NES"=summary(mylm2)$r.squared,
-  "-log10 p-val"=summary(mylm3)$r.squared,
-  "GSVA effect"=summary(mylm4)$r.squared,
-  "GSVA confect"= summary(mylm5)$r.squared)
-
-barplot(rsquared,
-  main="Impact of gene set size on prioritisation measure",
-  ylab="r-squared value",
-  ylim=c(0,0.3))
-
-text(x=(1:length(rsquared)*1.17)-0.4,y=rsquared+0.01,labels=signif(rsquared,2))
-
-rsquared
-
-rvals <- c("ES"=cor(log10(m2$size+1),abs(m2$ES)),
-  "NES"=cor(log10(m2$size+1),abs(m2$NES)),
-  "-log10 p-val"=cor(log10(m2$size+1),-log10(m2$pval)),
-  "GSVA effect"=cor(log10(m2$size+1),abs(m2$effect)),
-  "GSVA confect"=cor(log10(m2$size+1),abs(m2$confect)))
-
-barplot(rvals,
-  main="Impact of gene set size on prioritisation measure",
-  ylab="r value",
-  ylim=c(-0.4,0.6))
-
-text(x=(1:length(rvals)*1.17)-0.4,y=rvals*1.1,labels=signif(rvals,2))
-
-rvals
 
 ```
 
@@ -1088,7 +1008,7 @@ common <- sets[duplicated(sets)]
 
 common <- m2[which(m2$pathway %in% common),]
 
-points(common$NESrank, common$confect_rank,
+points(common$oprank, common$confect_rank,
   pch=10,col="darkgreen")
 
 nrow(common) / length(unique(sets))
@@ -1096,6 +1016,95 @@ nrow(common) / length(unique(sets))
 length( intersect(ftopup,gtopup) ) / length( union(ftopup,gtopup) )
 
 length( intersect(ftopdn,gtopdn) ) / length( union(ftopdn,gtopdn) )
+
+```
+
+## Relationship of set size and prioritisation metrics.
+
+```{r,NESsize1}
+
+# set size versus FGSEA ES
+plot(log10(m2$size+1),abs(m2$ES),xlab="log10 set size",ylab="Absolute ES")
+cor(log10(m2$size+1),abs(m2$ES))
+mylm1 <- lm( abs(m2$ES) ~ log10(m2$size+1) )
+abline(mylm1,col="red",lty=2,lwd=2)
+summary(mylm1)
+
+# set size versus FGSEA NES
+plot(log10(m2$size+1),abs(m2$NES),xlab="log10 set size",ylab="Absolute NES")
+cor(log10(m2$size+1),abs(m2$NES))
+mylm2 <- lm( abs(m2$NES) ~ log10(m2$size+1) )
+abline(mylm2,col="red",lty=2,lwd=2)
+summary(mylm2)
+
+# set size versus FGSEA p-value
+plot(log10(m2$size+1),-log10(m2$pval),xlab="log10 set size",ylab="-log10 pval")
+cor( log10(m2$size+1),-log10(m2$pval) )
+mylm3 <- lm( -log10(m2$pval) ~ log10(m2$size+1) )
+abline(mylm3,col="red",lty=2,lwd=2)
+summary(mylm3)
+
+# do the same for ORA FES
+plot(log10(mo2$size+1),abs(mo2$foldEnrichment),xlab="log10 set size",ylab="Absolute FES")
+cor( log10(mo2$size+1),abs(mo2$foldEnrichment) )
+mylm4 <- lm( abs(mo2$foldEnrichment) ~ log10(mo2$size+1) )
+abline(mylm4,col="red",lty=2,lwd=2)
+summary(mylm4)
+
+# do the same for ORA p-value
+plot(log10(mo2$size+1),-log10(mo2$pval),xlab="log10 set size",ylab="-log10 pval (ORA)")
+cor(log10(mo2$size+1),-log10(mo2$pval))
+mylm5 <- lm(  -log10(mo2$pval)  ~ log10(mo2$size+1) )
+abline(mylm5,col="red",lty=2,lwd=2)
+summary(mylm5)
+
+# set size versus absolute GSVA effect
+plot(log10(m2$size+1),abs(m2$effect),xlab="log10 set size",ylab="Estimated effect (log2FC)")
+cor(log10(m2$size+1),abs(m2$effect))
+mylm6 <- lm( abs(m2$effect) ~ log10(m2$size+1) )
+abline(mylm6,col="red",lty=2,lwd=2)
+summary(mylm6)
+
+# set size versus absolute GSVA confect
+plot(log10(m2$size+1),abs(m2$confect),xlab="log10 set size",ylab="Confect")
+cor(log10(m2$size+1),abs(m2$confect))
+mylm7 <- lm( abs(m2$effect) ~ log10(m2$size+1) )
+abline(mylm7,col="red",lty=2,lwd=2)
+summary(mylm7)
+
+rsquared <- c("ES"=summary(mylm1)$r.squared,
+  "NES"=summary(mylm2)$r.squared,
+  "GSEA p-val"=summary(mylm3)$r.squared,
+  "ORA FES"=summary(mylm4)$r.squared,
+  "ORA p-val"=summary(mylm5)$r.squared,
+  "GSVA effect"=summary(mylm6)$r.squared,
+  "GSVA confect"= summary(mylm7)$r.squared)
+
+barplot(rsquared,
+  main="Impact of gene set size on prioritisation measure",
+  ylab="r-squared value",
+  ylim=c(0,0.3))
+
+text(x=(1:length(rsquared)*1.17)-0.4,y=rsquared+0.01,labels=signif(rsquared,2))
+
+rsquared
+
+rvals <- c("ES"=cor(log10(m2$size+1),abs(m2$ES)),
+  "NES"=cor(log10(m2$size+1),abs(m2$NES)),
+  "GSEA p-val"=cor(log10(m2$size+1),-log10(m2$pval)),
+  "ORA FES"=cor( log10(mo2$size+1),abs(mo2$foldEnrichment) ),
+  "ORA p-val"=cor(log10(mo2$size+1),-log10(mo2$pval)),
+  "GSVA effect"=cor(log10(m2$size+1),abs(m2$effect)),
+  "GSVA confect"=cor(log10(m2$size+1),abs(m2$confect)))
+
+barplot(rvals,
+  main="Impact of gene set size on prioritisation measure",
+  ylab="r value",
+  ylim=c(-0.4,0.6))
+
+text(x=(1:length(rvals)*1.17)-0.4,y=rvals*1.1,labels=signif(rvals,2))
+
+rvals
 
 ```
 
