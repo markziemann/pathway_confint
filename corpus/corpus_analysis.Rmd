@@ -1,0 +1,94 @@
+---
+title: "Analysing pathway enrichment analysis results prioritisation - analysing the results of a screen"
+author: "Mark Ziemann"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    fig_width: 7
+    fig_height: 7
+theme: cosmo
+---
+
+Source: https://github.com/markziemann/pathway_confint
+
+## Intro
+
+Here we want to select 100 papers that did enrichment analysis.
+We want to know:
+
+* What tool was used for enrichment
+
+* What prioritisation was reported
+
+* From the data shown, what type of prioritisation was done
+
+```{r,libs}
+
+library("kableExtra")
+
+```
+
+## Read Survey data
+
+```{r,load_data}
+
+x <- read.csv("toppapers_results.tsv",sep="\t")
+head(x)
+colnames(x)
+
+```
+
+## Tools used
+
+```{r,tools_used}
+
+unique(x$Tool)
+sort(table(x$Tool),decreasing=TRUE)
+
+```
+
+## Selection of significant pathways
+
+Here is what the articles say about what results are considered significant.
+
+```{r,selection}
+
+x$Selection.stated
+
+sort(table(x$Selection.stated),decreasing=TRUE)
+sort(table(x$Selection.type),decreasing=TRUE)
+
+```
+
+## Prioritisation stated
+
+```{r,prioritisation}
+
+x$Prioritisation.stated
+sort(table(x$Prioritisation.stated),decreasing=TRUE)
+
+
+x$Prioritisation.stated.type
+sort(table(x$Prioritisation.stated.type),decreasing=TRUE)
+
+x$Prioritisation.observed
+sort(table(x$Prioritisation.observed),decreasing=TRUE)
+
+x$Prioritisation.observed.type
+sort(table(x$Prioritisation.observed.type),decreasing=TRUE)
+
+sort(table(subset(x,Prioritisation.observed.type == "Surrogate effect")$Prioritisation.observed),decreasing=TRUE)
+
+```
+
+## Session information
+
+For reproducibility.
+
+```{r,session}
+
+sessionInfo()
+
+```

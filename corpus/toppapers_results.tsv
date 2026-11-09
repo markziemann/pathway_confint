@@ -1,0 +1,101 @@
+PMID	ISSN1	ISSN2	sjr_col	Tool	Selection stated	Selection type	Prioritisation stated	Prioritisation stated type	Prioritisation observed	Prioritisation observed type	Notes
+37816332	18783686	15356108	26.632	fgsea	FDR<0.05	Statistical significance	Not stated	None stated	GeneRatio	Surrogate effect	GeneRatio (Table S4) is a column provided by clusterprofiler. It is the size of the overlap between the foreground list and the gene set. It is distinct from enrichment score.
+34534465	10974172	928674	24.592	ssGSEA	FDR<0.05	Statistical significance	NES	Surrogate effect	NES	Surrogate effect	Figure S6
+35803246	10974172	928674	24.592	hypeR	FDR<0.01	Statistical significance	Not stated	None stated	FDR	Statistical significance	Figure S3
+35108499	10974172	928674	24.592	GSEApy	Not stated	None stated	Not stated	None stated	FDR	Statistical significance	Figure 5
+37269831	10974172	928674	24.592	GSEA	FDR<0.1	Statistical significance	NES	Surrogate effect	NES	Surrogate effect	Figure 2I and Table S3
+40369079	14764687	280836	19.713	Enrichr	FDR<0.05	Statistical significance	Not stated	None stated	Number of overlap genes	Surrogate effect	Figure 5j
+40082405	20593635	20959907	17.74	Not stated	Not stated	None stated	Not stated	None stated	Number of overlap genes	Surrogate effect	Figure 2d, the shape of the data points is more important than the shade, so I say data is prioritised by number of genes, no the log p-value
+41253784	20593635	20959907	17.74	Enrichr	p<0.05	Statistical significance	Not stated	None stated	p-value	Statistical significance	Figure 1e
+41068080	20593635	20959907	17.74	GSEApy	FDR<0.05	Statistical significance	Not stated	None stated	p-value	Statistical significance	Figure 3a Supp Table 5 has spreadsheet errors.
+40414961	20593635	20959907	17.74	Not stated	Not stated	None stated	Not stated	None stated	NES	Surrogate effect	Figure 3b-f
+33414372	20593635	20959907	17.74	ClusterProfiler	FDR<0.05	Statistical significance	Not stated	None stated	p-value	Statistical significance	Figure 3i. Methods says EdgeR was used but it cites ClusterProfiler so I will write CP here.
+39321807	10974180	10747613	16.481	fgsea	Not stated	None stated	Not stated	None stated	Ambiguous	Unknown	Figure S1H
+36972796	16000641	1688278	13.097	ClusterProfiler	FDR<0.05	Statistical significance	Not stated	None stated	p-value	Statistical significance	Figure 2E
+38908380	18759777	19345909	12.003	Enrichr	Not stated	None stated	Not stated	None stated	p-value	Statistical significance	Figures 6J and S6B
+35659036	17568722	17568722	11.824	DAVID	FDR<0.05	Statistical significance	Not stated	None stated	p-value	Statistical significance	Figure 2C
+36434634	17568722	17568722	11.824	DAVID	p<0.05	Statistical significance	Not stated	None stated	p-value	Statistical significance	Additional file 3: Fig. S3A
+37563308	15292916	15292908	11.131	Enrichr	FDR<0.05	Statistical significance	Not stated	None stated	p-value	Statistical significance	Extended Data Fig. 3C
+37845489	15292916	15292908	11.131	fgsea	FDR<0.05	Statistical significance	Not stated	None stated	Number of overlap genes	Surrogate effect	Fig 2F
+36581713	15292916	15292908	11.131	ClusterProfiler	q<0.1	Statistical significance	GeneRatio	Surrogate effect	GeneRatio	Surrogate effect	Fig. 5d,e and Extended Data Fig. 2b
+41418754	10974164	10972765	10.67	pyPAGE	Not stated	None stated	Enrichment Score	Surrogate effect	Enrichment Score	Surrogate effect	Fig 1E
+41250119	14764598	14764598	9.908	DAVID	p<0.05	Statistical significance	p-value	Statistical significance	p-value	Statistical significance	Fig 1C
+39506849	14764598	14764598	9.908	GSEA	Not stated	None stated	Not stated	None stated	NES	Surrogate effect	Fig 1A-F
+35681235	14764598	14764598	9.908	GSEA	FDR<0.05	Statistical significance	Not stated	None stated	NES	Surrogate effect	Fig 5B. There's some confusion about whether they used the MSigDB GSEA or the python implementation. Also Fig4 has some other type of enrichment analysis that isn't mentioned properly in the methods.
+35148775	14764598	14764598	9.908	GSEA	p<0.05	Statistical significance	Not stated	None stated	Ambiguous	Unknown	Fig 4A.
+35986270	14764598	14764598	9.908	Not stated	Not stated	None stated	Not stated	None stated	p-value	Statistical significance	Fig 4C
+35733218	14764598	14764598	9.908	ClusterProfiler	FDR<0.05	Statistical significance	Not stated	None stated	GeneRatio	Surrogate effect	Fig 3G
+40361105	14764598	14764598	9.908	Omicverse	FDR<0.05	Statistical significance	Not stated	None stated	FDR	Statistical significance	Fig 1G
+37189103	14764598	14764598	9.908	IPA	Not stated	None stated	Not stated	None stated	p-value	Statistical significance	Fig 2B
+36812913	19346069	19313128	9.892	Biocyc	Not stated	None stated	Not stated	None stated	FDR	Statistical significance	Fig 1E
+33432202	25225812	25225812	9.602	Enrichr	FDR<0.1	Statistical significance	Not stated	None stated	FDR	Statistical significance	Supp Table 3
+41472850	2770596X	27705986	9.121	phyper	Not stated	None stated	Not stated	None stated	GeneRatio	Surrogate effect	Fig 7B
+38871824	14764679	14657392	9.085	ClusterProfiler	Not stated	None stated	Not stated	None stated	p-value	Statistical significance	Fig 4C
+38429478	14764679	14657392	9.085	DAVID	Not stated	None stated	Not stated	None stated	p-value	Statistical significance	Fig 4C
+38443061	14683288	175749	8.772	Pathfinder	Not stated	None stated	Not stated	None stated	log2 Fold Change	Effect	Fig 1E
+35688610	14683288	175749	8.772	GSEA	Not stated	None stated	Not stated	None stated	NES	Surrogate effect	Fig 1F
+34893868	13624962	3051048	8.111	ClusterProfiler	Not stated	None stated	FDR	Statistical significance	Number of overlap genes	Surrogate effect	Fig 5F
+36454018	13624962	3051048	8.111	WebGestalt	Not stated	None stated	Not stated	None stated	Enrichment Percentage	Surrogate effect	Fig 3A
+33849070	13624962	3051048	8.111	ROAST	FDR<0.05	Statistical significance	log2 Fold Change	Effect	log2 Fold Change	Effect	Fig 8
+40226914	13624962	3051048	8.111	IPA	FDR<0.1	Statistical significance	log2 Fold Change	Effect	log2 Fold Change	Effect	Fig 1D
+36408932	13624962	3051048	8.111	DAVID	Not stated	None stated	Not stated	None stated	p-value	Statistical significance	Fig 3C
+36243980	13624962	3051048	8.111	Fisher test	Not stated	None stated	Richfactor	Surrogate effect	Richfactor	Surrogate effect	Fig 1M
+40433981	13624962	3051048	8.111	ClusterProfiler	q<0.05	Statistical significance	Not stated	None stated	Fold enrichment	Surrogate effect	Fig 4F
+36881772	13624962	3051048	8.111	WebGestalt	FDR<0.05	Statistical significance	Enrichment Ratio	Surrogate effect	Enrichment Ratio	Surrogate effect	Fig 1B
+40923763	13624962	3051048	8.111	WebGestalt	Not stated	None stated	Not stated	None stated	Enrichment Ratio	Surrogate effect	Fig 4C
+36864749	13624962	3051048	8.111	Enrichr	Not stated	None stated	Not stated	None stated	p-value	Statistical significance	Fig 10A
+35947648	13624962	3051048	8.111	ClusterProfiler	Not stated	None stated	FDR	Statistical significance	FDR	Statistical significance	Fig 5C
+35349708	13624962	3051048	8.111	g:Profiler	FDR<0.05	Statistical significance	Not stated	None stated	p-value	Statistical significance	Fig S4
+33834206	13624962	3051048	8.111	GAGE	FDR<0.1	Statistical significance	Not stated	None stated	p-value	Statistical significance	Supp Table 4
+39498484	13624962	3051048	8.111	Not stated	Not stated	None stated	Not stated	None stated	FDR	Statistical significance	Fig 2F
+37572350	13624962	3051048	8.111	RIGW	FDR<0.05	Statistical significance	FDR	Statistical significance	p-value	Statistical significance	Fig S12
+39623600	25233548	25233548	7.986	ClusterProfiler	p<0.05	Statistical significance	Not stated	None stated	Pathway Impact	Surrogate effect	Fig 1E
+41212905	25233548	25233548	7.986	GSVA	Not stated	None stated	Not stated	None stated	p-value	Statistical significance	Fig 2B, they also show effect sizes in Fig2C
+40227950	25233548	25233548	7.986	ClusterProfiler	Not stated	None stated	Not stated	None stated	Number of overlap genes	Surrogate effect	Fig S6A
+38816066	14682060	34967	7.286	ClusterProfiler	FDR<0.05	Statistical significance	Not stated	None stated	GeneRatio	Surrogate effect	Fig S1F
+41381303	14682060	34967	7.286	methylGSA	Not stated	None stated	Not stated	None stated	Number of overlap genes	Surrogate effect	Fig 4C. GSVA was used for cellular effects but not for Reactome analysis
+39250463	15273350	2709139	7.063	Metaboanalyst	Not stated	None stated	Not stated	None stated	Pathway Impact	Surrogate effect	Fig 3F
+37540187	15273350	2709139	7.063	GSVA	Not stated	None stated	Enrichment Score	Surrogate effect	Enrichment Score	Surrogate effect	Fig 3I
+37870294	15273350	2709139	7.063	Fisher test	FDR<0.05	Statistical significance	Not stated	None stated	FDR	Statistical significance	Fig S2AB
+38788713	2666979X	2666979X	6.518	Enrichr	Not stated	None stated	Not stated	None stated	FDR	Statistical significance	Fig 5B
+38697122	2666979X	2666979X	6.518	Metascape	p<0.01	Statistical significance	Not stated	None stated	p-value	Statistical significance	Fig S5, S14
+40480216	2666979X	2666979X	6.518	ClusterProfiler	FDR<0.05	Statistical significance	Not stated	None stated	GeneRatio	Surrogate effect	Fig 5J
+40528203	17501326	17501326	6.262	GSEA	q<0.1	Statistical significance	NES	Surrogate effect	NES	Surrogate effect	Fig 5h
+40685360	20549369	20957467	5.898	Not stated	Not stated	None stated	Not stated	None stated	p-value	Statistical significance	Fig 1B
+33315085	15409538	221007	5.83	Not stated	Not stated	None stated	Not stated	None stated	FDR	Statistical significance	Fig 7D
+34857014	1474760X	14747596	5.792	Enrichr	Not stated	None stated	p-value	Statistical significance	p-value	Statistical significance	Additional File 6.
+41286991	1474760X	14747596	5.792	Not stated	P<0.005	Statistical significance	Not stated	None stated	p-value	Statistical significance	Fig 5f,g
+40775355	1474760X	14747596	5.792	Metascape	Not stated	None stated	Not stated	None stated	FDR	Statistical significance	Fig 5I
+40462200	1474760X	14747596	5.792	g:Profiler	FDR<0.05	Statistical significance	Not stated	None stated	FDR	Statistical significance	Fig 2E
+40390047	1474760X	14747596	5.792	ShinyGO	FDR<0.05	Statistical significance	Not stated	None stated	FDR	Statistical significance	Fig 3B
+39152483	1474760X	14747596	5.792	fgsea fora	Not stated	None stated	Not stated	None stated	Fold change	Effect	Fig 5
+37016431	1474760X	14747596	5.792	Enrichr	Not stated	None stated	Not stated	None stated	p-value	Statistical significance	Fig 3E
+34001209	1474760X	14747596	5.792	GSEApy	Not stated	None stated	Not stated	None stated	p-value	Statistical significance	Fig 1G
+41361473	1474760X	14747596	5.792	ClusterProfiler	FDR<0.05	Statistical significance	Not stated	None stated	Fold enrichment	Surrogate effect	Additional file 1: Table S6 and Table S7
+38822412	1474760X	14747596	5.792	Enrichr	Not stated	None stated	FDR	Statistical significance	Number of overlap genes	Surrogate effect	Fig 2C
+37673062	18781551	15345807	5.494	ToppCluster	Not stated	None stated	Not stated	None stated	Number of overlap genes	Surrogate effect	Fig 1I
+41293823	15244571	97330	5.371	GSEA	FDR<0.05	Statistical significance	Not stated	None stated	NES	Surrogate effect	Fig 3A
+39011638	15244571	97330	5.371	DAVID	Not stated	None stated	Not stated	None stated	GeneRatio	Surrogate effect	Fig 4D
+36583388	15244571	97330	5.371	IPA	FDR<0.05	Statistical significance	Not stated	None stated	FDR	Statistical significance	Fig S3D
+36252111	15244571	97330	5.371	Not stated	Not stated	None stated	Not stated	None stated	GeneRatio	Surrogate effect	Fig 2E
+41342119	15244571	97330	5.371	IPA	Not stated	None stated	Not stated	None stated	Number of overlap genes	Surrogate effect	Fig 7C
+37377116	15229645	0195668X	5.326	ToppGene	Not stated	None stated	Not stated	None stated	Richfactor	Surrogate effect	Fig 3B
+33914067	15235866	15228517	5.249	Metascape	Not stated	None stated	Not stated	None stated	Fold enrichment	Surrogate effect	Fig 4B
+39447031	15235866	15228517	5.249	GSEA	Not stated	None stated	Not stated	None stated	p-value	Statistical significance	Fig 3A there is some confusion which software was used - the original GSEA or ClusterProfiler. I'm going with what they report.
+38411438	15235866	15228517	5.249	GSEA	Not stated	None stated	Not stated	None stated	FDR	Statistical significance	Fig 2A
+35640920	15235866	15228517	5.249	Enrichr	Not stated	None stated	p-value	Statistical significance	p-value	Statistical significance	Fig S1C
+35906483	14765403	13509047	5.182	Not stated	Not stated	None stated	Not stated	None stated	p-value	Statistical significance	Fig 2E
+38321214	14765403	13509047	5.182	ClusterProfiler	Not stated	None stated	Not stated	None stated	NES	Surrogate effect	Fig 4A, Table S5
+38762597	14765403	13509047	5.182	ClusterProfiler	Not stated	None stated	Not stated	None stated	Richfactor	Surrogate effect	Fig 5C
+35379950	14765403	13509047	5.182	Enrichr	p<0.05	Statistical significance	Not stated	None stated	GeneRatio	Surrogate effect	Fig 3F
+41423554	20926413	12263613	5.123	Not stated	Not stated	None stated	Not stated	None stated	p-value	Statistical significance	Fig 1E
+36352257	20926413	12263613	5.123	WebGestaltR	FDR<0.05	Statistical significance	Not stated	None stated	Ambiguous	Unknown	Fig 2D
+35999453	20926413	12263613	5.123	MetaCore	FDR<0.05	Statistical significance	FDR	Statistical significance	Number of overlap genes	Surrogate effect	Fig 5A
+39349823	20926413	12263613	5.123	DAVID	Not stated	None stated	Not stated	None stated	p-value	Statistical significance	Fig 5A
+35180881	1756994X	1756994X	4.971	ClusterProfiler	Not stated	None stated	Not stated	None stated	Number of overlap genes	Surrogate effect	Fig 4A
+40760450	1756994X	1756994X	4.971	Metascape	Not stated	None stated	Not stated	None stated	p-value	Statistical significance	Fig 3F
+35581624	1756994X	1756994X	4.971	ClusterProfiler	Not stated	None stated	Not stated	None stated	q-value	Statistical significance	Fig 1C
+38539228	1756994X	1756994X	4.971	ClusterProfiler	FDR<0.05	Statistical significance	NES	Surrogate effect	FDR	Statistical significance	Fig 3D
+40775734	1756994X	1756994X	4.971	g:Profiler	FDR<0.01	Statistical significance	Not stated	None stated	Expression of member genes	Effect	Fig 2
+38658971	1756994X	1756994X	4.971	ClusterProfiler	p<0.05	Statistical significance	Not stated	None stated	GeneRatio	Surrogate effect	Fig 2B
+37131267	1756994X	1756994X	4.971	ClusterProfiler	Not stated	None stated	Not stated	None stated	p-value	Statistical significance	Fig S5A
