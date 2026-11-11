@@ -34,7 +34,7 @@ csl: plos-computational-biology.csl
 * We propose that conducting single sample pathway expression analysis in conjunction with confident effect size
 estimation enables prioritisation of statistically significant and biologically important results.
 
-* This approach has the benefit of 
+* This approach has the benefit of:
 
 -- P-values and confidence intervals are estimated based on observed inter-sample variability.
 
@@ -91,6 +91,14 @@ were considered.
 
 Prioritisation observed is determined by how the data is presented.
 For a dotplot, the x-axis is considered most important, followed by the shape/size, then finally the colour.
+
+## Pathway analysis prioritisation differences between GSVA-confect results with ORA and FCS
+
+Gene expression counts were obtained for lung cancer and corresponding normal tissues from 37 patients (Cho et al, 2022).
+Outdated and erroneous gene symbols were updated using HGNChelper (Oh et al, 2020).
+
+Pathways were obtained in GMT format from Reactome (Downloaded 23rd October 2026).
+
 
 # Results
 
@@ -170,3 +178,5 @@ then GSEA ES (0.12, negative association), then ORA p-value (0.088, positive), O
 while GSVA log2FC (0.0088, negative) and GSVA confect (1.6e-7, positive).
 
 This result suggests that GSVA confect prioritisation is the approach least biased by gene set size.
+
+## 

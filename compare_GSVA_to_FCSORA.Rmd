@@ -93,7 +93,7 @@ param <- gsvaParam(
     geneSets = gs,
     kcdf = "Gaussian",
     minSize = 5,
-    maxSize = 500
+    maxSize = 5000
 )
 
 scores <- gsva(param)
@@ -1021,7 +1021,7 @@ length( intersect(ftopdn,gtopdn) ) / length( union(ftopdn,gtopdn) )
 
 ## Relationship of set size and prioritisation metrics.
 
-```{r,NESsize1}
+```{r,NESsize1,fig.height=5,fig.width=7}
 
 # set size versus FGSEA ES
 plot(log10(m2$size+1),abs(m2$ES),xlab="log10 set size",ylab="Absolute ES")
