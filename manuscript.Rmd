@@ -27,6 +27,9 @@ csl: plos-computational-biology.csl
 
 # Abstract
 
+* Pathway enrichment analysis is a powerful technique but often results in hundreds of statistically significant
+results that are challenging to interpret.
+
 * p-values are overused in pathway enrichment analysis.
 
 * Effect sizes should be considered as well.
@@ -34,7 +37,7 @@ csl: plos-computational-biology.csl
 * We propose that conducting single sample pathway expression analysis in conjunction with confident effect size
 estimation enables prioritisation of statistically significant and biologically important results.
 
-* This approach has the benefit of 
+* This approach has the benefit of
 
 -- P-values and confidence intervals are estimated based on observed inter-sample variability.
 
@@ -60,8 +63,11 @@ or bottom of the ranked gene list.
 
 * Both of these methods involve statistical tests of enrichment that do not model biological variation.
 
-* Newer algorithms like ssGSEA and GSVA are different in that they calculate differential pathway analysis
+* Newer algorithms like ssGSEA and GSVA are different in that they calculate differential pathway regulation
 based on models of pathway expression across samples.
+
+* A standing challenge in bioinformatics is to effectively interpret pathway analysis results especially when
+there are hundreds of statistically significant observations.
 
 * We propose that using TopConfects, a package to calculate gene expression confidence intervals, is effective
 in prioritising differential pathway results by confident effect size.
@@ -92,6 +98,10 @@ were considered.
 Prioritisation observed is determined by how the data is presented.
 For a dotplot, the x-axis is considered most important, followed by the shape/size, then finally the colour.
 
+## Application of GSVA confects to lung cancer gene expression
+
+## Downsampling analysis of lung cancer gene expression
+
 # Results
 
 ## Survey of pathway enrichment analysis prioritisation across top-ranked journals
@@ -107,7 +117,7 @@ while in 10 papers the tool used was not described.
 For statistical significance classification, 55 papers did not state any criterion.
 In the other 45, 36 used a FDR or q-value threshold and nine described a p-value threshold.
 
-For the stated prioritisation criterion, it was not described in 81 cases. 
+For the stated prioritisation criterion, it was not described in 81 cases.
 In eight papers, statistical significance values were described as being used to rank enrichment results.
 In nine articles, a surrogate of the effect size was used, such as enrichment score.
 In two articles, a true effect (expression fold change) was used for prioritisation.
@@ -121,7 +131,54 @@ These surrogate effect sizes included the number of overlap genes(11), GeneRatio
 fold enrichment (3), and others.
 
 The utility of these surrogate effect measures is variable.
-For example, a large number of overlap genes could be due to a combination of set size and the degree of
+For example, the number of overlap genes is influenced by set size as well as the degree of
 differential expression.
 The fold enrichment is based on composition of a gene list that is selected (mostly) by statistical
 significance of individual genes, not effect size.
+
+Next, we surveyed the default output prioritisation of the most popular 13 tools with two or more
+mentions in the corpus.
+Of these, eight tools provided results prioritised by p-value.
+Two tools prioritised results by NES.
+Two tools did not conduct any reordering of the pathways, leaving it to the discretion of the operator.
+One tool (WebGestalt) prioritised results by fold enrichment after applying a significance threshold.
+
+Taken together, these results show that most popular pathway enrichment tools prioritise results by
+statistical significance values.
+Consequently, pathway analysis results in top journals seem to be presented in terms of statistical
+significance with little interpretation of effect sizes related to biology.
+
+## GSVA-confects prioritises different pathways
+
+According to the analysis of published papers above, prioritisation of pathway results is most commonly done by
+statistical significance and secondly by surrogate measures such as NES.
+
+We sought to understand how confect prioritisation impacts upon interpretation of Reactome pathway analysis results
+by comparing it with significance and surrogate effect measures from FCS and ORA tests, assuming that
+end-users tend to focus on the top 50 results in each direction.
+
+Using the lung cancer gene expression example, there were:
+GSVA  797 up, 631 down,
+FCS  508 up, 179 down,
+ORA  252 up, 16 down significant pathways (FDR<0.05,Refer to Euler Diagram).
+
+jaccard index was
+GSVA-confect vs FGSEA-NES:  0.205 (0.236,0.176)
+GSVA-confect vs FGSEA-ES:   0.398 (0.408,0.389)
+GSVA-confect vs FGSEA-p:    0.117 (0.124,0.111)
+GSVA-confect vs ORA-FES:    0.379 (0.639,0,190)
+GSVA-confect vs ORA-p:      0.198 (0.282,0,124)
+
+For these results, we can also examine how the size of the gene set correlates with the prioritisation metrics
+to ascertain the gene set size bias.
+
+Using linear regression of log gene set size with these prioritisation metrics, we determined the r-squared
+value of these relationships:
+
+It was largest for GSEA p-value (0.24) with a positive association, followed by GSEA NES (0.15, positive),
+then GSEA ES (0.12, negative association), then ORA p-value (0.088, positive), ORA FES (0.0047, negative),
+while GSVA log2FC (0.0088, negative) and GSVA confect (1.6e-7, positive).
+
+This result suggests that GSVA confect prioritisation is the approach least biased by gene set size.
+
+## Downsampling shows sensitivity and accuracy of GSVA confect results
