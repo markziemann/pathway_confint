@@ -1,0 +1,127 @@
+---
+title: "Differential pathway expression analysis using confident effect size prioritisation"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::robobook:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    fig_width: 5
+    fig_height: 5
+bibliography: bibliography.bib
+csl: plos-computational-biology.csl
+---
+
+<strong>Mark Ziemann<sup>1,2*</sup></strong>
+
+1. Burnet Institute, Melbourne, Australia
+
+2. Deakin University, School of Life and Environmental Sciences, Geelong, Australia.
+
+(*) Correspondence: mark.ziemann@burnet.edu.au
+
+| Author | ORCID |
+| --- | --- |
+| Mark Ziemann | 0000-0002-7688-6974 |
+
+# Abstract
+
+* p-values are overused in pathway enrichment analysis.
+
+* Effect sizes should be considered as well.
+
+* We propose that conducting single sample pathway expression analysis in conjunction with confident effect size
+estimation enables prioritisation of statistically significant and biologically important results.
+
+* This approach has the benefit of 
+
+-- P-values and confidence intervals are estimated based on observed inter-sample variability.
+
+-- Effect sizes and CI are expressed as logFC, so effects can be compared across studies.
+
+# Background
+
+* p-values are synonymous with statistical significance testing but they do not by themselves indicate the size or
+importance of an effect.
+
+* In order to understand gene expression differences at the pathway level we should be using effect size estimates
+in combination with statistical significance values to interpret oure results.
+
+* Focusing solely on p-values can lead to prioritising large gene sets with relatively small changes in expression.
+
+* The most popular pathway analysis tools use ORA and FCS methods.
+
+* ORA involves hypergeometric test to ascertain whether a gene list of interest is over-represented in certain
+functional categories.
+
+* FCS methods like GSEA calculate whether functional categories are over-represented at the top
+or bottom of the ranked gene list.
+
+* Both of these methods involve statistical tests of enrichment that do not model biological variation.
+
+* Newer algorithms like ssGSEA and GSVA are different in that they calculate differential pathway analysis
+based on models of pathway expression across samples.
+
+* We propose that using TopConfects, a package to calculate gene expression confidence intervals, is effective
+in prioritising differential pathway results by confident effect size.
+
+* Surrogate effect size measures produced by existing ORA and FCS tools are indirect in nature and do not accurately
+reflect the degree of differential pathway expression observed in the data.
+
+* Surrogate effect sizes therefore can't accurately be compared across studies.
+
+# Methods
+
+## Survey of pathway enrichment analysis prioritisation across top-ranked journals
+
+To understand how pathway analysis is prioritised in the literature, we undertook a survey of 100 open-access
+articles in PubMedCentral that included the phrase "pathway enrichment analysis" published between 2021-2025,
+with a Scimago Journal Rank of 4.9 or higher.
+
+We only considered original research articles showing pathway enrichment data.
+Reviews, opinion and commentary articles were excluded.
+
+From these articles, we collected information including (1) the tool used, (2) what described criterion was used
+to classify statistically significant pathway results, (3) the described criterion used to prioritise
+enrichment results, and (4) the observed primary criterion used to prioritise enrichment results.
+
+For articles containing multiple enrichment analyses, the first analysis/results presented in the main article
+were considered.
+
+Prioritisation observed is determined by how the data is presented.
+For a dotplot, the x-axis is considered most important, followed by the shape/size, then finally the colour.
+
+# Results
+
+## Survey of pathway enrichment analysis prioritisation across top-ranked journals
+
+Because modern pathway enrichment techniques can result in hundreds of statistically significant findings,
+different prioritisation approaches can impact the interpretation of results dramatically.
+To understand how such results are being prioritised currently, we undertook a screen of 100 high-impact articles
+published in the past six years.
+
+In this small sample ClusterProfiler, Enrichr, GSEA and DAVID were the most popular, accounting for 48 papers,
+while in 10 papers the tool used was not described.
+
+For statistical significance classification, 55 papers did not state any criterion.
+In the other 45, 36 used a FDR or q-value threshold and nine described a p-value threshold.
+
+For the stated prioritisation criterion, it was not described in 81 cases. 
+In eight papers, statistical significance values were described as being used to rank enrichment results.
+In nine articles, a surrogate of the effect size was used, such as enrichment score.
+In two articles, a true effect (expression fold change) was used for prioritisation.
+
+We also looked at how the pathway analysis data was prioritised in the presented data in the article.
+In 49 papers, the results were ordered by statistical significance scores.
+In three articles prioritisation was ambiguous/unknown.
+In five articles, results were prioritised by a true effect size, such as log2 fold change.
+In 43 articles, results were ordered by a surrogate effect size.
+These surrogate effect sizes included the number of overlap genes(11), GeneRatio(10), NES(9),
+fold enrichment (3), and others.
+
+The utility of these surrogate effect measures is variable.
+For example, a large number of overlap genes could be due to a combination of set size and the degree of
+differential expression.
+The fold enrichment is based on composition of a gene list that is selected (mostly) by statistical
+significance of individual genes, not effect size.
