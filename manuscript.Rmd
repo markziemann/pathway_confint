@@ -27,6 +27,9 @@ csl: plos-computational-biology.csl
 
 # Abstract
 
+* Pathway enrichment analysis is a powerful technique but often results in hundreds of statistically significant
+results that are challenging to interpret.
+
 * p-values are overused in pathway enrichment analysis.
 
 * Effect sizes should be considered as well.
@@ -60,8 +63,11 @@ or bottom of the ranked gene list.
 
 * Both of these methods involve statistical tests of enrichment that do not model biological variation.
 
-* Newer algorithms like ssGSEA and GSVA are different in that they calculate differential pathway analysis
+* Newer algorithms like ssGSEA and GSVA are different in that they calculate differential pathway regulation
 based on models of pathway expression across samples.
+
+* A standing challenge in bioinformatics is to effectively interpret pathway analysis results especially when
+there are hundreds of statistically significant observations.
 
 * We propose that using TopConfects, a package to calculate gene expression confidence intervals, is effective
 in prioritising differential pathway results by confident effect size.
@@ -92,6 +98,7 @@ were considered.
 Prioritisation observed is determined by how the data is presented.
 For a dotplot, the x-axis is considered most important, followed by the shape/size, then finally the colour.
 
+<<<<<<< HEAD
 ## Pathway analysis prioritisation differences between GSVA-confect results with ORA and FCS
 
 Gene expression counts were obtained for lung cancer and corresponding normal tissues from 37 patients (Cho et al, 2022).
@@ -99,6 +106,11 @@ Outdated and erroneous gene symbols were updated using HGNChelper (Oh et al, 202
 
 Pathways were obtained in GMT format from Reactome (Downloaded 23rd October 2026).
 
+=======
+## Application of GSVA confects to lung cancer gene expression
+
+## Downsampling analysis of lung cancer gene expression
+>>>>>>> db20ee5198ccb8c1b2f744446195f88261be0309
 
 # Results
 
@@ -179,4 +191,4 @@ while GSVA log2FC (0.0088, negative) and GSVA confect (1.6e-7, positive).
 
 This result suggests that GSVA confect prioritisation is the approach least biased by gene set size.
 
-## 
+## Downsampling shows sensitivity and accuracy of GSVA confect results
