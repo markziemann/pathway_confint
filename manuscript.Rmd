@@ -98,7 +98,6 @@ were considered.
 Prioritisation observed is determined by how the data is presented.
 For a dotplot, the x-axis is considered most important, followed by the shape/size, then finally the colour.
 
-<<<<<<< HEAD
 ## Pathway analysis prioritisation differences between GSVA-confect results with ORA and FCS
 
 Gene expression counts were obtained for lung cancer and corresponding normal tissues from 37 patients (Cho et al, 2022).
@@ -106,11 +105,7 @@ Outdated and erroneous gene symbols were updated using HGNChelper (Oh et al, 202
 
 Pathways were obtained in GMT format from Reactome (Downloaded 23rd October 2026).
 
-=======
-## Application of GSVA confects to lung cancer gene expression
-
 ## Downsampling analysis of lung cancer gene expression
->>>>>>> db20ee5198ccb8c1b2f744446195f88261be0309
 
 # Results
 

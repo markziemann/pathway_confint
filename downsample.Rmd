@@ -108,7 +108,7 @@ gsva_tc <- function(NPAT,i,gs) {
 }
 
 
-fgsea <- function(NPAT,i,gs) {
+run_fgsea <- function(NPAT,i,gs) {
   set.seed(i*100)
   PATS <- sample(unique(ss$patient),NPAT,replace=FALSE)
   ssd <- ss[which(ss$patient %in% PATS),]
@@ -116,7 +116,7 @@ fgsea <- function(NPAT,i,gs) {
   xd <- x[,colnames(x) %in% rownames(ssd)]
   xdf <- xd[which(rowMeans(xd) > 5),]
   y <- DGEList(counts = xdf)
-  y <- calcNormFactors(y)
+  y <- normLibSizes(y)
   design <- model.matrix(~ 0 + patient + tumor, data = ssd)
   v <- voom(y, design)
   fit <- lmFit(v, design)
@@ -132,112 +132,190 @@ fgsea <- function(NPAT,i,gs) {
 }
 
 
-```
-
-## ORA
-
-```{r,ora1}
-
-upgenes <- rownames(subset(res,logFC>0 & FDR<0.05))
-dngenes <- rownames(subset(res,logFC<0 & FDR<0.05))
-bg <- rownames(res)
-
-ores_up <- fora(pathways=gs,genes=upgenes,universe=bg,minSize=5)
-ores_dn <- fora(pathways=gs,genes=dngenes,universe=bg,minSize=5)
-
-o_up <- subset(ores_up,padj<0.05)$pathway
-o_dn <- subset(ores_dn,padj<0.05)$pathway
-
-
-```
-
-## Compare
-
-```{r,pw_euler}
-
-jaccard <- function(x,y) {
-  length(intersect(x,y)) / length(union(x,y))
+ora <- function(NPAT,i,gs) {
+  set.seed(i*100)
+  PATS <- sample(unique(ss$patient),NPAT,replace=FALSE)
+  ssd <- ss[which(ss$patient %in% PATS),]
+  ssd$patient <- as.factor(as.character(ssd$patient))
+  xd <- x[,colnames(x) %in% rownames(ssd)]
+  xdf <- xd[which(rowMeans(xd) > 5),]
+  y <- DGEList(counts = xdf)
+  y <- normLibSizes(y)
+  design <- model.matrix(~ 0 + patient + tumor, data = ssd)
+  v <- voom(y, design)
+  fit <- lmFit(v, design)
+  fit2 <- eBayes(fit)
+  results <- topTable(fit2, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
+  up <- unique(rownames(head(subset(results, logFC>0),750)))
+  dn <- unique(rownames(head(subset(results, logFC<0),750)))
+  bg <- unique(rownames(results))
+  ores_up <- fora(pathways=gs,genes=up,universe=bg,minSize=5)
+  ores_dn <- fora(pathways=gs,genes=dn,universe=bg,minSize=5)
+  ores_dn$foldEnrichment <- ores_dn$foldEnrichment * -1
+  ores <- rbind(ores_dn,ores_up)
+  return(ores)
 }
 
-jaccard(gsva_up,tcup)
+```
 
+## General test
 
-# GSVA vs FCS
-v1 <- list("GSVA_up"=gsva_up, "GSVA_dn"=gsva_dn,
-  "FCS_up"=f_up,"FCS_dn"=f_dn)
+```{r,general}
 
+ores <- ora(NPAT=5,i,gs)
+fres <- run_fgsea(NPAT=5,i,gs)
+gres <- gsva_tc(NPAT=5,i,gs)
+
+o_up <- subset(ores,padj < 0.05 & foldEnrichment > 0)$pathway
+o_dn <- subset(ores,padj < 0.05 & foldEnrichment < 0)$pathway
+
+f_up <- subset(fres,padj < 0.05 & NES > 0)$pathway
+f_dn <- subset(fres,padj < 0.05 & NES < 0)$pathway
+
+g_up <- subset(gres,adj.P.Val < 0.05 & logFC > 0 )$Row.names
+g_dn <- subset(gres,adj.P.Val < 0.05 & logFC < 0 )$Row.names
+
+v1 <- list("ORA up"=o_up, "FCS up"=f_up, "GSVA up"=g_up)
 plot(euler(v1),quantities = TRUE)
 
-# ORA vs FCS
-v1 <- list("ORA_up"=o_up, "ORA_dn"=o_dn,
-  "FCS_up"=f_up,"FCS_dn"=f_dn)
-
-plot(euler(v1),quantities = TRUE)
-
-# GSVA vs ORA
-v1 <- list("GSVA_up"=gsva_up, "GSVA_dn"=gsva_dn,
-  "ORA_up"=o_up,"ORA_dn"=o_dn)
-
-plot(euler(v1),quantities = TRUE)
-
-# Compare all
-v1 <- list("GSVA_up"=gsva_up, "GSVA_dn"=gsva_dn,
-  "FCS_up"=f_up,"FCS_dn"=f_dn,
-  "ORA_up"=o_up,"ORA_dn"=o_dn)
-
+v1 <- list("ORA dn"=o_dn, "FCS dn"=f_dn, "GSVA dn"=g_dn)
 plot(euler(v1),quantities = TRUE)
 
 ```
 
-## Scatterplot
 
-Merge GSVA-limma and FGSEA results tables.
+## Split and run
 
-```{r,scatter}
+```{r,split_n_run}
 
-#head(results)
-#head(fres)
+gsva2 <- function(NPAT1=18,NPAT2=5,i,gs) {
 
-m <- merge(fres,results,by.x="pathway",by.y=0)
-head(m)
-plot(m$ES,m$logFC,pch=19,cex=0.6)
-abline(v=0,h=0,lty=2,lwd=1)
+  set.seed(i*100)
+  PATS1 <- sample(unique(ss$patient),NPAT1,replace=FALSE)
+  ssd1 <- ss[which(ss$patient %in% PATS1),]
+  ssd1$patient <- as.factor(as.character(ssd1$patient))
+  xd1 <- x[,colnames(x) %in% rownames(ssd1)]
+  xdf1 <- xd1[which(rowMeans(xd1) > 5),]
+  y1 <- DGEList(counts = xdf1)
+  y1 <- normLibSizes(y1) #edgeR
+  expr1 <- cpm(y1, log = TRUE, prior.count = 2)
+  param1 <- gsvaParam( expr = expr1, geneSets = gs, kcdf = "Gaussian", minSize = 5, maxSize = 5000)
+  scores1 <- gsva(param1)
+  design1 <- model.matrix(~ patient + tumor, data = ssd1)
+  fit1 <- limma::lmFit(scores1, design1)
+  fit1 <- limma::eBayes(fit1)
+  results1 <- limma::topTable( fit1, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
+  confects1 <- limma_confects(fit1, coef="tumorTRUE", fdr=0.05)
+  m1 <- merge(results1,confects1$table,by.x=0,by.y="name")
+  m1dn <- head(subset(m1[order(m1$confect),],confect<0),50)$Row.names
+  m1dn <- paste(m1dn,"dn")
+  m1up <- head(subset(m1[order(-m1$confect),],confect>0),50)$Row.names
+  m1up <- paste(m1up,"up")
+  m1updn <- c(m1up,m1dn)
 
-plot(m$ES,m$logFC,pch=19,cex=0.6)
-abline(v=0,h=0,lty=2,lwd=1)
-m_sig1 <- subset(m,padj<0.05)
-points(m_sig1$ES,m_sig1$logFC,col="red",pch=19,cex=0.6)
-mtext("FGSEA sig points in red")
+  set.seed(i*100)
+  PATS2 <- sample( setdiff(unique(ss$patient) , PATS1), NPAT2, replace=FALSE )
+  ssd2 <- ss[which(ss$patient %in% PATS2),]
+  ssd2$patient <- as.factor(as.character(ssd2$patient))
+  xd2 <- x[,colnames(x) %in% rownames(ssd2)]
+  xdf2 <- xd2[which(rowMeans(xd2) > 5),]
+  y2 <- DGEList(counts = xdf2)
+  y2 <- normLibSizes(y2) #edgeR
+  expr2 <- cpm(y2, log = TRUE, prior.count = 2)
+  param2 <- gsvaParam( expr = expr2, geneSets = gs, kcdf = "Gaussian", minSize = 5, maxSize = 5000)
+  scores2 <- gsva(param2)
+  design2 <- model.matrix(~ patient + tumor, data = ssd2)
+  fit2 <- limma::lmFit(scores2, design2)
+  fit2 <- limma::eBayes(fit2)
+  results2 <- limma::topTable( fit2, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
+  confects2 <- limma_confects(fit2, coef="tumorTRUE", fdr=0.05)
+  m2 <- merge(results,confects2$table,by.x=0,by.y="name")
+  m2dn <- head(subset(m2[order(m2$confect),],confect<0),50)$Row.names
+  m2dn <- paste(m2dn,"dn")
+  m2up <- head(subset(m2[order(-m2$confect),],confect>0),50)$Row.names
+  m2up <- paste(m2up,"up")
+  m2updn <- c(m2up,m2dn)
 
-plot(m$ES,m$logFC,pch=19,cex=0.6)
-abline(v=0,h=0,lty=2,lwd=1)
-m_sig2 <- subset(m,adj.P.Val<0.05)
-points(m_sig2$ES,m_sig2$logFC,col="blue",pch=19,cex=0.6)
-mtext("GSVA sig points in blue")
+  ix_n <- length( intersect( m1updn , m2updn ))
+  un_n <- length( union( m1updn , m2updn ))
+  jac <- ix_n / un_n
+  return(c(ix_n,un_n,jac))
 
-plot(m$ES,m$logFC,pch=19,cex=0.6)
-abline(v=0,h=0,lty=2,lwd=1)
-m_sig3 <- subset(m,adj.P.Val<0.05 & padj<0.05)
-points(m_sig1$ES,m_sig1$logFC,col="red",pch=19,cex=0.6)
-points(m_sig2$ES,m_sig2$logFC,col="blue",pch=19,cex=0.6)
-points(m_sig3$ES,m_sig3$logFC,col="orange",pch=19,cex=0.6)
-mtext("FGSEA=red, GSVA=blue,both=orange")
+}
 
-```
+gres <- mclapply(1:10,function(i) { gsva2(NPAT1=18,NPAT2=5,i=i,gs) } , mc.cores=10)
+gdf <- do.call(rbind,gres)
+colMeans(gdf)
 
-## Directional question
+#[1]  46.0000000 154.0000000   0.2987013
 
-Potential contradiction with logFC (GSVA) and ES (FGSEA).
+fgsea2 <- function(NPAT1=18,NPAT2=5,i,gs) {
 
-```{r,direction_contradiction}
+  set.seed(i*100)
+  PATS1 <- sample(unique(ss$patient),NPAT1,replace=FALSE)
+  ssd1 <- ss[which(ss$patient %in% PATS1),]
+  ssd1$patient <- as.factor(as.character(ssd1$patient))
+  xd1 <- x[,colnames(x) %in% rownames(ssd1)]
+  xdf1 <- xd1[which(rowMeans(xd1) > 5),]
 
-subset(m_sig2,adj.P.Val<0.05 & logFC < 0 & ES > 0) |>
-  kbl(caption="bottom-right pathways") |>
-  kable_paper("hover", full_width = F)
+  y1 <- DGEList(counts = xdf1)
+  y1 <- normLibSizes(y1)
+  design1 <- model.matrix(~ 0 + patient + tumor, data = ssd1)
+  v1 <- voom(y1, design1)
+  fit1 <- lmFit(v1, design1)
+  fit1 <- eBayes(fit1)
+  results1 <- topTable(fit1, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
+  stats1 <- results1$t
+  names(stats1) <- rownames(results1)
+  fres1 <- fgsea(pathways=gs, stats=stats1, minSize=5 ,nproc=1 )
+  fres1 <- as.data.frame(fres1)
+  fres1 <- fres1[order(fres1$pval),]
 
-subset(m_sig2,adj.P.Val<0.05 & logFC > 0 & ES < 0) |>
-  kbl(caption="top-left pathways") |>
-  kable_paper("hover", full_width = F)
+  f1up <- head(subset(fres1[order(-fres1$NES),],padj<0.05),50)$pathway
+  f1up <- paste(f1up,"up")
+  f1dn <- head(subset(fres1[order(fres1$NES),],padj<0.05),50)$pathway
+  f1dn <- paste(f1dn,"dn")
+  f1updn <- c(f1up,f1dn)
+
+  set.seed(i*100)
+  PATS2 <- sample( setdiff(unique(ss$patient) , PATS1), NPAT2, replace=FALSE )
+  ssd2 <- ss[which(ss$patient %in% PATS2),]
+  ssd2$patient <- as.factor(as.character(ssd2$patient))
+  xd2 <- x[,colnames(x) %in% rownames(ssd2)]
+  xdf2 <- xd2[which(rowMeans(xd2) > 5),]
+
+  y2 <- DGEList(counts = xdf2)
+  y2 <- normLibSizes(y2)
+  design2 <- model.matrix(~ 0 + patient + tumor, data = ssd2)
+  v2 <- voom(y2, design2)
+  fit2 <- lmFit(v2, design2)
+  fit2 <- eBayes(fit2)
+  results2 <- topTable(fit2, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
+  stats2 <- results2$t
+  names(stats2) <- rownames(results2)
+  fres2 <- fgsea(pathways=gs, stats=stats2, minSize=5 , nproc=1 )
+  fres2 <- as.data.frame(fres2)
+  fres2 <- fres2[order(fres2$pval),]
+
+  f2up <- head(subset(fres2[order(-fres2$NES),],padj<0.05),50)$pathway
+  f2up <- paste(f2up,"up")
+  f2dn <- head(subset(fres2[order(fres2$NES),],padj<0.05),50)$pathway
+  f2dn <- paste(f2dn,"dn")
+  f2updn <- c(f2up,f2dn)
+
+  ix_n <- length( intersect( f1updn , f2updn ))
+  un_n <- length( union( f1updn , f2updn ))
+  jac <- ix_n / un_n
+  return(c(ix_n,un_n,jac))
+
+}
+
+fres <- mclapply(1:10,function(i) { fgsea2(NPAT1=18,NPAT2=5,i=i,gs) } , mc.cores=10)
+fdf <- do.call(rbind,fres)
+colMeans(fdf)
+
+#[1]  48.0000000 152.0000000   0.3157895
+
 
 ```
 
