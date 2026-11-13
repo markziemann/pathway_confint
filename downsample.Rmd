@@ -184,7 +184,7 @@ plot(euler(v1),quantities = TRUE)
 
 ## Split and run
 
-Here we look at the sensitivity of FDR<0.05.
+Here we look at the recall of FDR<0.05.
 
 ```{r,split_n_run_functions}
 
@@ -243,9 +243,9 @@ gsva2 <- function(NPAT1=18,NPAT2=5,i,gs) {
   fp_n <- length(setdiff(m2updn,m1updn))
   un_n <- length( union( m1updn , m2updn ))
   jac <- ix_n / un_n
-  sens <- ix_n / m1_n
-  spec <- ix_n / ( ix_n + fp_n )
-  return(c("m1_n"=m1_n, "m2_n"=m2_n, "ix_n"=ix_n, "fn_n"=fn_n, "fp_n"=fp_n, "un_n"=un_n, "jac"=jac, "sens"=sens, "spec"=spec))
+  rec <- ix_n / m1_n
+  prec <- ix_n / ( ix_n + fp_n )
+  return(c("m1_n"=m1_n, "m2_n"=m2_n, "ix_n"=ix_n, "fn_n"=fn_n, "fp_n"=fp_n, "un_n"=un_n, "jac"=jac, "rec"=rec, "prec"=prec))
 
 }
 
@@ -314,9 +314,9 @@ fgsea2 <- function(NPAT1=18,NPAT2=5,i,gs) {
   fn_n <- length(setdiff(f1updn,f2updn))
   fp_n <- length(setdiff(f2updn,f1updn))
   jac <- ix_n / un_n
-  sens <- ix_n / f1_n
-  spec <- ix_n / ( ix_n + fp_n )
-  return(c("f1_n"=f1_n, "f2_n"=f2_n, "ix_n"=ix_n, "fn_n"=fn_n, "fp_n"=fp_n, "un_n"=un_n, "jac"=jac, "sens"=sens, "spec"=spec))
+  rec <- ix_n / f1_n
+  prec <- ix_n / ( ix_n + fp_n )
+  return(c("f1_n"=f1_n, "f2_n"=f2_n, "ix_n"=ix_n, "fn_n"=fn_n, "fp_n"=fp_n, "un_n"=un_n, "jac"=jac, "rec"=rec, "prec"=prec))
 
 }
 
@@ -383,9 +383,9 @@ ora2 <- function(NPAT1=18,NPAT2=5,i,gs) {
   fn_n <- length(setdiff( o1updn, o2updn))
   fp_n <- length(setdiff( o2updn, o1updn))
   jac <- ix_n / un_n
-  sens <- ix_n / o1_n
-  spec <- ix_n / ( ix_n + fp_n )
-  return(c("o1_n"=o1_n, "o2_n"=o2_n, "ix_n"=ix_n, "fn_n"=fn_n, "fp_n"=fp_n, "un_n"=un_n, "jac"=jac, "sens"=sens, "spec"=spec))
+  rec <- ix_n / o1_n
+  prec <- ix_n / ( ix_n + fp_n )
+  return(c("o1_n"=o1_n, "o2_n"=o2_n, "ix_n"=ix_n, "fn_n"=fn_n, "fp_n"=fp_n, "un_n"=un_n, "jac"=jac, "rec"=rec, "prec"=prec))
 
 }
 
@@ -400,8 +400,9 @@ Lets run some analysis.
 ```{r,split_n_run}
 
 REPS=10
+TESTRANGE <- seq(2,16,2)
 
-res <- lapply( seq(2,16,2) , function(n) {
+res <- lapply( TESTRANGE , function(n) {
   gres <- mclapply(1:REPS,function(i) { gsva2(NPAT1=18, NPAT2=n, i=i, gs) } , mc.cores=10)
   gdf <- do.call(rbind,gres)
   fres <- mclapply(1:REPS,function(i) { fgsea2(NPAT1=18, NPAT2=n, i=i, gs) } , mc.cores=10)
@@ -412,19 +413,85 @@ res <- lapply( seq(2,16,2) , function(n) {
   return(res)
 })
 
-g_spec <- lapply(res, function(x) { x$g[,"spec"] } )
-names(g_spec) <- seq(2,16,2)
-g_sens <- lapply(res, function(x) { x$g[,"sens"] } )
-names(g_sens) <- seq(2,16,2)
+g_prec <- lapply(res, function(x) { x$g[,"prec"] } )
+names(g_prec) <- TESTRANGE
+g_rec <- lapply(res, function(x) { x$g[,"rec"] } )
+names(g_rec) <- TESTRANGE
 
+f_prec <- lapply(res, function(x) { x$f[,"prec"] } )
+names(f_prec) <- TESTRANGE
+f_rec <- lapply(res, function(x) { x$f[,"rec"] } )
+names(f_rec) <- TESTRANGE
+
+o_prec <- lapply(res, function(x) { x$o[,"prec"] } )
+names(o_prec) <- TESTRANGE
+o_rec <- lapply(res, function(x) { x$o[,"rec"] } )
+names(o_rec) <- TESTRANGE
+
+```
+
+Make some boxplots.
+
+```{r,boxplots1}
+
+par(mfrow=c(2,3))
+
+boxplot(g_rec,col="white",cex=0,main="GSVA", ylim=c(0,1))
+beeswarm(g_rec,add=TRUE)
+mtext("recall")
+
+boxplot(f_rec,col="white",cex=0,main="FCS", ylim=c(0,1))
+beeswarm(f_rec,add=TRUE)
+mtext("recall")
+
+boxplot(o_rec,col="white",cex=0,main="ORA", ylim=c(0,1))
+beeswarm(o_rec,add=TRUE)
+mtext("recall")
+
+boxplot(g_prec,col="white",cex=0,main="GSVA", ylim=c(0,1))
+beeswarm(g_prec,add=TRUE)
+mtext("precision")
+
+boxplot(f_prec,col="white",cex=0,main="FCS",xlab="n reps", ylim=c(0,1))
+beeswarm(f_prec,add=TRUE)
+mtext("precision")
+
+boxplot(o_prec,col="white",cex=0,main="ORA", ylim=c(0,1))
+beeswarm(o_prec,add=TRUE)
+mtext("precision")
+
+par(mfrow=c(1,1))
+
+```
+
+Summarise and plot a line graph.
+
+
+```{r,linegraph}
 
 par(mfrow=c(1,2))
-boxplot(g_sens,col="white",cex=0,main="GSVA")
-beeswarm(g_sens,add=TRUE)
-mtext("sensitivity")
-boxplot(g_spec,col="white",cex=0)
-mtext("specificity")
-beeswarm(g_spec,add=TRUE)
+
+plot( TESTRANGE, lapply(g_rec,mean), type="b" , col="darkgreen", xlab="n reps",ylab="recall", ylim=c(0,1))
+points( TESTRANGE, lapply(f_rec,mean), type="b" , col="darkorange")
+points( TESTRANGE, lapply(o_rec,mean), type="b" , col="magenta")
+
+plot( TESTRANGE, lapply(g_prec,mean), type="b" , col="darkgreen", xlab="n reps",ylab="specificity", ylim=c(0,1))
+points( TESTRANGE, lapply(f_prec,mean), type="b" , col="darkorange")
+points( TESTRANGE, lapply(o_prec,mean), type="b" , col="magenta")
+
+legend(x = "topleft", box.lwd = 2 ,
+       legend=c("GSVA", "FCS", "ORA"),
+       col = c("darkgreen","darkorange","magenta"))
+
+par(mfrow=c(1,1))
+
+lapply(g_rec,signif(mean,4))
+lapply(f_rec,signif(mean,4))
+lapply(o_rec,signif(mean,4))
+
+lapply(g_prec,signif(mean,4))
+lapply(f_prec,signif(mean,4))
+lapply(o_prec,signif(mean,4))
 
 ```
 
