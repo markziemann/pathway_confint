@@ -230,7 +230,7 @@ gsva2 <- function(NPAT1=18,NPAT2=5,i,gs) {
   fit2 <- limma::eBayes(fit2)
   results2 <- limma::topTable( fit2, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
   confects2 <- limma_confects(fit2, coef="tumorTRUE", fdr=0.05)
-  m2 <- merge(results,confects2$table,by.x=0,by.y="name")
+  m2 <- merge(results2,confects2$table,by.x=0,by.y="name")
   m2up <- subset(m2,adj.P.Val < 0.05 & logFC > 0 )$Row.names
   m2up <- paste(m2up,"up")
   m2dn <- subset(m2,adj.P.Val < 0.05 & logFC < 0 )$Row.names
@@ -244,7 +244,9 @@ gsva2 <- function(NPAT1=18,NPAT2=5,i,gs) {
   fp_n <- length(setdiff(m2updn,m1updn))
   un_n <- length( union( m1updn , m2updn ))
   jac <- ix_n / un_n
-  return(c("m1_n"=m1_n, "m2_n"=m2_n, "ix_n"=ix_n, "fn_n"=fn_n, "fp_n"=fp_n, "un_n"=un_n, "jac"=jac))
+  sens <- ix_n / m1_n
+  spec <- ix_n / ( ix_n + fp_n )
+  return(c("m1_n"=m1_n, "m2_n"=m2_n, "ix_n"=ix_n, "fn_n"=fn_n, "fp_n"=fp_n, "un_n"=un_n, "jac"=jac, "sens"=sens, "spec"=spec))
 
 }
 
@@ -313,7 +315,9 @@ fgsea2 <- function(NPAT1=18,NPAT2=5,i,gs) {
   fn_n <- length(setdiff(f1updn,f2updn))
   fp_n <- length(setdiff(f2updn,f1updn))
   jac <- ix_n / un_n
-  return(c("f1_n"=f1_n, "f2_n"=f2_n, "ix_n"=ix_n, "fn_n"=fn_n, "fp_n"=fp_n, "un_n"=un_n, "jac"=jac))
+  sens <- ix_n / m1_n
+  spec <- ix_n / ( ix_n + fp_n )
+  return(c("f1_n"=f1_n, "f2_n"=f2_n, "ix_n"=ix_n, "fn_n"=fn_n, "fp_n"=fp_n, "un_n"=un_n, "jac"=jac, "sens"=sens, "spec"=spec))
 
 }
 
@@ -380,7 +384,9 @@ ora2 <- function(NPAT1=18,NPAT2=5,i,gs) {
   fn_n <- length(setdiff( o1updn, o2updn))
   fp_n <- length(setdiff( o2updn, o1updn))
   jac <- ix_n / un_n
-  return(c("o1_n"=o1_n, "o2_n"=o2_n, "ix_n"=ix_n, "fn_n"=fn_n, "fp_n"=fp_n, "un_n"=un_n, "jac"=jac))
+  sens <- ix_n / m1_n
+  spec <- ix_n / ( ix_n + fp_n )
+  return(c("o1_n"=o1_n, "o2_n"=o2_n, "ix_n"=ix_n, "fn_n"=fn_n, "fp_n"=fp_n, "un_n"=un_n, "jac"=jac, "sens"=sens, "spec"=spec))
 
 }
 
@@ -394,18 +400,18 @@ Lets run some analysis.
 
 ```{r,split_n_run}
 
-res <- lapply(c(3,6,9), function(n) {
-  gres <- mclapply(1:100,function(i) { gsva2(NPAT1=18,NPAT2=n,i=i,gs) } , mc.cores=10)
+REPS=10
+
+res <- lapply(c(2:18), function(n) {
+  gres <- mclapply(1:REPS,function(i) { gsva2(NPAT1=18, NPAT2=n, i=i, gs) } , mc.cores=10)
   gdf <- do.call(rbind,gres)
-  fres <- mclapply(1:100,function(i) { fgsea2(NPAT1=18,NPAT2=n,i=i,gs) } , mc.cores=10)
+  fres <- mclapply(1:REPS,function(i) { fgsea2(NPAT1=18, NPAT2=n, i=i, gs) } , mc.cores=10)
   fdf <- do.call(rbind,fres)
-  ores <- mclapply(1:100,function(i) { ora2(NPAT1=18,NPAT2=n,i=i,gs) } , mc.cores=10)
+  ores <- mclapply(1:REPS,function(i) { ora2(NPAT1=18, NPAT2=n, i=i, gs) } , mc.cores=10)
   odf <- do.call(rbind,ores)
-  res <- rbind(colMeans(gdf),colMeans(fdf),colMeans(odf))
+  res <- list("g"=gdf,"f"=fdf,"o"=odf)
   return(res)
 })
-
-
 
 ```
 
