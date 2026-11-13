@@ -26,6 +26,7 @@ Source: https://github.com/markziemann/pathway_confint
   library("topconfects")
   library("fgsea")
   library("eulerr")
+  library("parallel")
 
 ```
 
@@ -80,8 +81,6 @@ head(ss)
 ## Downsample
 
 ```{r,downsample_gsva_tc}
-
-blah()
 
 NPAT=3
 i=1
@@ -160,7 +159,7 @@ ora <- function(NPAT,i,gs) {
 
 ## General test
 
-```{r,general}
+```{r,overlaps}
 
 ores <- ora(NPAT=5,i,gs)
 fres <- run_fgsea(NPAT=5,i,gs)
@@ -315,7 +314,7 @@ fgsea2 <- function(NPAT1=18,NPAT2=5,i,gs) {
   fn_n <- length(setdiff(f1updn,f2updn))
   fp_n <- length(setdiff(f2updn,f1updn))
   jac <- ix_n / un_n
-  sens <- ix_n / m1_n
+  sens <- ix_n / f1_n
   spec <- ix_n / ( ix_n + fp_n )
   return(c("f1_n"=f1_n, "f2_n"=f2_n, "ix_n"=ix_n, "fn_n"=fn_n, "fp_n"=fp_n, "un_n"=un_n, "jac"=jac, "sens"=sens, "spec"=spec))
 
@@ -384,7 +383,7 @@ ora2 <- function(NPAT1=18,NPAT2=5,i,gs) {
   fn_n <- length(setdiff( o1updn, o2updn))
   fp_n <- length(setdiff( o2updn, o1updn))
   jac <- ix_n / un_n
-  sens <- ix_n / m1_n
+  sens <- ix_n / o1_n
   spec <- ix_n / ( ix_n + fp_n )
   return(c("o1_n"=o1_n, "o2_n"=o2_n, "ix_n"=ix_n, "fn_n"=fn_n, "fp_n"=fp_n, "un_n"=un_n, "jac"=jac, "sens"=sens, "spec"=spec))
 
@@ -402,7 +401,7 @@ Lets run some analysis.
 
 REPS=10
 
-res <- lapply(c(2:18), function(n) {
+res <- lapply( seq(2,16,2) , function(n) {
   gres <- mclapply(1:REPS,function(i) { gsva2(NPAT1=18, NPAT2=n, i=i, gs) } , mc.cores=10)
   gdf <- do.call(rbind,gres)
   fres <- mclapply(1:REPS,function(i) { fgsea2(NPAT1=18, NPAT2=n, i=i, gs) } , mc.cores=10)
@@ -412,6 +411,20 @@ res <- lapply(c(2:18), function(n) {
   res <- list("g"=gdf,"f"=fdf,"o"=odf)
   return(res)
 })
+
+g_spec <- lapply(res, function(x) { x$g[,"spec"] } )
+names(g_spec) <- seq(2,16,2)
+g_sens <- lapply(res, function(x) { x$g[,"sens"] } )
+names(g_sens) <- seq(2,16,2)
+
+
+par(mfrow=c(1,2))
+boxplot(g_sens,col="white",cex=0,main="GSVA")
+beeswarm(g_sens,add=TRUE)
+mtext("sensitivity")
+boxplot(g_spec,col="white",cex=0)
+mtext("specificity")
+beeswarm(g_spec,add=TRUE)
 
 ```
 
