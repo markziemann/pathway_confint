@@ -475,23 +475,23 @@ plot( TESTRANGE, lapply(g_rec,mean), type="b" , col="darkgreen", xlab="n reps",y
 points( TESTRANGE, lapply(f_rec,mean), type="b" , col="darkorange")
 points( TESTRANGE, lapply(o_rec,mean), type="b" , col="magenta")
 
-plot( TESTRANGE, lapply(g_prec,mean), type="b" , col="darkgreen", xlab="n reps",ylab="specificity", ylim=c(0,1))
-points( TESTRANGE, lapply(f_prec,mean), type="b" , col="darkorange")
-points( TESTRANGE, lapply(o_prec,mean), type="b" , col="magenta")
-
-legend(x = "topleft", box.lwd = 2 ,
+legend(x = "topleft", box.lwd = 2 , lwd=1, lty=1,
        legend=c("GSVA", "FCS", "ORA"),
        col = c("darkgreen","darkorange","magenta"))
 
+plot( TESTRANGE, lapply(g_prec,mean), type="b" , col="darkgreen", xlab="n reps",ylab="precision", ylim=c(0,1))
+points( TESTRANGE, lapply(f_prec,mean), type="b" , col="darkorange")
+points( TESTRANGE, lapply(o_prec,mean), type="b" , col="magenta")
+
 par(mfrow=c(1,1))
 
-lapply(g_rec,signif(mean,4))
-lapply(f_rec,signif(mean,4))
-lapply(o_rec,signif(mean,4))
+signif(sapply(g_rec,mean),3)
+signif(sapply(f_rec,mean),3)
+signif(sapply(o_rec,mean),3)
 
-lapply(g_prec,signif(mean,4))
-lapply(f_prec,signif(mean,4))
-lapply(o_prec,signif(mean,4))
+signif(sapply(g_prec,mean),3)
+signif(sapply(f_prec,mean),3)
+signif(sapply(o_prec,mean),3)
 
 ```
 
