@@ -183,10 +183,11 @@ plot(euler(v1),quantities = TRUE)
 
 ```
 
-
 ## Split and run
 
-```{r,split_n_run}
+Here we look at the sensitivity of FDR<0.05.
+
+```{r,split_n_run_functions}
 
 gsva2 <- function(NPAT1=18,NPAT2=5,i,gs) {
 
@@ -207,10 +208,10 @@ gsva2 <- function(NPAT1=18,NPAT2=5,i,gs) {
   results1 <- limma::topTable( fit1, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
   confects1 <- limma_confects(fit1, coef="tumorTRUE", fdr=0.05)
   m1 <- merge(results1,confects1$table,by.x=0,by.y="name")
-  m1dn <- head(subset(m1[order(m1$confect),],confect<0),50)$Row.names
-  m1dn <- paste(m1dn,"dn")
-  m1up <- head(subset(m1[order(-m1$confect),],confect>0),50)$Row.names
+  m1up <- subset(m1,adj.P.Val < 0.05 & logFC > 0 )$Row.names
   m1up <- paste(m1up,"up")
+  m1dn <- subset(m1,adj.P.Val < 0.05 & logFC < 0 )$Row.names
+  m1dn <- paste(m1up,"dn")
   m1updn <- c(m1up,m1dn)
 
   set.seed(i*100)
@@ -230,24 +231,26 @@ gsva2 <- function(NPAT1=18,NPAT2=5,i,gs) {
   results2 <- limma::topTable( fit2, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
   confects2 <- limma_confects(fit2, coef="tumorTRUE", fdr=0.05)
   m2 <- merge(results,confects2$table,by.x=0,by.y="name")
-  m2dn <- head(subset(m2[order(m2$confect),],confect<0),50)$Row.names
-  m2dn <- paste(m2dn,"dn")
-  m2up <- head(subset(m2[order(-m2$confect),],confect>0),50)$Row.names
+  m2up <- subset(m2,adj.P.Val < 0.05 & logFC > 0 )$Row.names
   m2up <- paste(m2up,"up")
+  m2dn <- subset(m2,adj.P.Val < 0.05 & logFC < 0 )$Row.names
+  m2dn <- paste(m2up,"dn")
   m2updn <- c(m2up,m2dn)
 
+  m1_n <- length(m1updn)
+  m2_n <- length(m2updn)
   ix_n <- length( intersect( m1updn , m2updn ))
+  fn_n <- length(setdiff(m1updn,m2updn))
+  fp_n <- length(setdiff(m2updn,m1updn))
   un_n <- length( union( m1updn , m2updn ))
   jac <- ix_n / un_n
-  return(c(ix_n,un_n,jac))
+  return(c("m1_n"=m1_n, "m2_n"=m2_n, "ix_n"=ix_n, "fn_n"=fn_n, "fp_n"=fp_n, "un_n"=un_n, "jac"=jac))
 
 }
 
-gres <- mclapply(1:10,function(i) { gsva2(NPAT1=18,NPAT2=5,i=i,gs) } , mc.cores=10)
-gdf <- do.call(rbind,gres)
-colMeans(gdf)
-
-#[1]  46.0000000 154.0000000   0.2987013
+#gres <- mclapply(1:10,function(i) { gsva2(NPAT1=18,NPAT2=5,i=i,gs) } , mc.cores=10)
+#gdf <- do.call(rbind,gres)
+#colMeans(gdf)
 
 fgsea2 <- function(NPAT1=18,NPAT2=5,i,gs) {
 
@@ -271,9 +274,9 @@ fgsea2 <- function(NPAT1=18,NPAT2=5,i,gs) {
   fres1 <- as.data.frame(fres1)
   fres1 <- fres1[order(fres1$pval),]
 
-  f1up <- head(subset(fres1[order(-fres1$NES),],padj<0.05),50)$pathway
+  f1up <- subset(fres1[order(-fres1$NES),],padj<0.05)$pathway
   f1up <- paste(f1up,"up")
-  f1dn <- head(subset(fres1[order(fres1$NES),],padj<0.05),50)$pathway
+  f1dn <- subset(fres1[order(fres1$NES),],padj<0.05)$pathway
   f1dn <- paste(f1dn,"dn")
   f1updn <- c(f1up,f1dn)
 
@@ -297,24 +300,111 @@ fgsea2 <- function(NPAT1=18,NPAT2=5,i,gs) {
   fres2 <- as.data.frame(fres2)
   fres2 <- fres2[order(fres2$pval),]
 
-  f2up <- head(subset(fres2[order(-fres2$NES),],padj<0.05),50)$pathway
+  f2up <- subset(fres2[order(-fres2$NES),],padj<0.05)$pathway
   f2up <- paste(f2up,"up")
-  f2dn <- head(subset(fres2[order(fres2$NES),],padj<0.05),50)$pathway
+  f2dn <- subset(fres2[order(fres2$NES),],padj<0.05)$pathway
   f2dn <- paste(f2dn,"dn")
   f2updn <- c(f2up,f2dn)
 
+  f1_n <- length(f1updn)
+  f2_n <- length(f2updn)
   ix_n <- length( intersect( f1updn , f2updn ))
   un_n <- length( union( f1updn , f2updn ))
+  fn_n <- length(setdiff(f1updn,f2updn))
+  fp_n <- length(setdiff(f2updn,f1updn))
   jac <- ix_n / un_n
-  return(c(ix_n,un_n,jac))
+  return(c("f1_n"=f1_n, "f2_n"=f2_n, "ix_n"=ix_n, "fn_n"=fn_n, "fp_n"=fp_n, "un_n"=un_n, "jac"=jac))
 
 }
 
-fres <- mclapply(1:10,function(i) { fgsea2(NPAT1=18,NPAT2=5,i=i,gs) } , mc.cores=10)
-fdf <- do.call(rbind,fres)
-colMeans(fdf)
+#fres <- mclapply(1:10,function(i) { fgsea2(NPAT1=18,NPAT2=5,i=i,gs) } , mc.cores=10)
+#fdf <- do.call(rbind,fres)
+#colMeans(fdf)
 
-#[1]  48.0000000 152.0000000   0.3157895
+ora2 <- function(NPAT1=18,NPAT2=5,i,gs) {
+
+  set.seed(i*100)
+  PATS1 <- sample(unique(ss$patient),NPAT1,replace=FALSE)
+  ssd1 <- ss[which(ss$patient %in% PATS1),]
+  ssd1$patient <- as.factor(as.character(ssd1$patient))
+  xd1 <- x[,colnames(x) %in% rownames(ssd1)]
+  xdf1 <- xd1[which(rowMeans(xd1) > 5),]
+
+  y1 <- DGEList(counts = xdf1)
+  y1 <- normLibSizes(y1)
+  design1 <- model.matrix(~ 0 + patient + tumor, data = ssd1)
+  v1 <- voom(y1, design1)
+  fit1 <- lmFit(v1, design1)
+  fit1 <- eBayes(fit1)
+  results1 <- topTable(fit1, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
+  up <- rownames(subset(results1,adj.P.Val<0.05 & logFC > 0))
+  dn <- rownames(subset(results1,adj.P.Val<0.05 & logFC < 0))
+  bg <- unique(rownames(results1))
+  ores_up <- fora(pathways=gs,genes=up,universe=bg,minSize=5)
+  ores_dn <- fora(pathways=gs,genes=dn,universe=bg,minSize=5)
+  o1up <- subset(ores_up,padj<0.05)$pathway
+  o1dn <- subset(ores_dn,padj<0.05)$pathway
+  o1up <- paste(o1up,"up")
+  o1dn <- paste(o1dn,"dn")
+  o1updn <- c(o1up,o1dn)
+
+  set.seed(i*100)
+  PATS2 <- sample( setdiff(unique(ss$patient) , PATS1), NPAT2, replace=FALSE )
+  ssd2 <- ss[which(ss$patient %in% PATS2),]
+  ssd2$patient <- as.factor(as.character(ssd2$patient))
+  xd2 <- x[,colnames(x) %in% rownames(ssd2)]
+  xdf2 <- xd2[which(rowMeans(xd2) > 5),]
+
+  y2 <- DGEList(counts = xdf2)
+  y2 <- normLibSizes(y2)
+  design2 <- model.matrix(~ 0 + patient + tumor, data = ssd2)
+  v2 <- voom(y2, design2)
+  fit2 <- lmFit(v2, design2)
+  fit2 <- eBayes(fit2)
+  results2 <- topTable(fit2, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
+  up <- rownames(subset(results2,adj.P.Val<0.05 & logFC > 0))
+  dn <- rownames(subset(results2,adj.P.Val<0.05 & logFC < 0))
+  bg <- unique(rownames(results2))
+  ores_up <- fora(pathways=gs,genes=up,universe=bg,minSize=5)
+  ores_dn <- fora(pathways=gs,genes=dn,universe=bg,minSize=5)
+  o2up <- subset(ores_up,padj<0.05)$pathway
+  o2dn <- subset(ores_dn,padj<0.05)$pathway
+  o2up <- paste(o2up,"up")
+  o2dn <- paste(o2dn,"dn")
+  o2updn <- c(o2up,o2dn)
+
+  o1_n <- length(o1updn)
+  o2_n <- length(o2updn)
+  ix_n <- length( intersect( o1updn , o2updn ))
+  un_n <- length( union( o1updn , o2updn ))
+  fn_n <- length(setdiff( o1updn, o2updn))
+  fp_n <- length(setdiff( o2updn, o1updn))
+  jac <- ix_n / un_n
+  return(c("o1_n"=o1_n, "o2_n"=o2_n, "ix_n"=ix_n, "fn_n"=fn_n, "fp_n"=fp_n, "un_n"=un_n, "jac"=jac))
+
+}
+
+#ores <- mclapply(1:10,function(i) { ora2(NPAT1=18,NPAT2=5,i=i,gs) } , mc.cores=10)
+#odf <- do.call(rbind,ores)
+#colMeans(odf)
+
+```
+
+Lets run some analysis.
+
+```{r,split_n_run}
+
+res <- lapply(c(3,6,9), function(n) {
+  gres <- mclapply(1:100,function(i) { gsva2(NPAT1=18,NPAT2=n,i=i,gs) } , mc.cores=10)
+  gdf <- do.call(rbind,gres)
+  fres <- mclapply(1:100,function(i) { fgsea2(NPAT1=18,NPAT2=n,i=i,gs) } , mc.cores=10)
+  fdf <- do.call(rbind,fres)
+  ores <- mclapply(1:100,function(i) { ora2(NPAT1=18,NPAT2=n,i=i,gs) } , mc.cores=10)
+  odf <- do.call(rbind,ores)
+  res <- rbind(colMeans(gdf),colMeans(fdf),colMeans(odf))
+  return(res)
+})
+
 
 
 ```

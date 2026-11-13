@@ -105,7 +105,27 @@ Outdated and erroneous gene symbols were updated using HGNChelper (Oh et al, 202
 
 Pathways were obtained in GMT format from Reactome (Downloaded 23rd October 2026).
 
+## Assessment of effect-size estimation accuracy
+
+* Thincounts + noise + introduce logfcs in some pathways
+
+* Run ORA, FCS and GSVA confects
+
+* Rank pathways by effect size
+
 ## Downsampling analysis of lung cancer gene expression
+
+To understand whether GSVA confects has a similar sensitivity as compared to FCS and ORA approaches,
+we undertook a downsampling analysis of the lung cancer gene expression dataset.
+
+Firstly, 18 patients were selected to group A to act as a ground truth.
+GSVA, FCS and ORA were conducted and the pathways with FDR<0.05 were selected.
+From the remaining 19 patients, *n* were selected to be group B, where n was varied from 2 to 18.
+Group B also underwent GSVA, FCA and ORA and the results were compared to group A.
+Pathways present in group A and B sets in the same direction were considered true positives.
+Pathways present in group B and not group A were considered false positives.
+Pathways present in group A and not group B were considered false negatives.
+
 
 # Results
 
