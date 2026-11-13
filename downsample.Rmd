@@ -466,22 +466,66 @@ par(mfrow=c(1,1))
 
 Summarise and plot a line graph.
 
+add error whiskers:
+
+x <- 1:10
+
+plot(x,ylim=c(0,11))
+
+arrows(x0=1,x1=1,y0=0,y1=2, length=0.1, angle=90, code=3 )
+
 
 ```{r,linegraph}
 
 par(mfrow=c(1,2))
 
 plot( TESTRANGE, lapply(g_rec,mean), type="b" , col="darkgreen", xlab="n reps",ylab="recall", ylim=c(0,1))
-points( TESTRANGE, lapply(f_rec,mean), type="b" , col="darkorange")
-points( TESTRANGE, lapply(o_rec,mean), type="b" , col="magenta")
+
+lapply(1:length(g_rec), function(i) {
+  y0 <- summary(g_rec[[i]])[2]
+  y1 <- summary(g_rec[[i]])[5]
+  arrows(x0=TESTRANGE[i],x1=TESTRANGE[i],y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkgreen")
+} )
+
+points( TESTRANGE+0.2, lapply(f_rec,mean), type="b" , col="darkorange")
+lapply(1:length(f_rec), function(i) {
+  y0 <- summary(f_rec[[i]])[2]
+  y1 <- summary(f_rec[[i]])[5]
+  arrows(x0=TESTRANGE[i]+0.2,x1=TESTRANGE[i]+0.2,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkorange")
+} )
+
+points( TESTRANGE-0.2, lapply(o_rec,mean), type="b" , col="magenta")
+lapply(1:length(o_rec), function(i) {
+  y0 <- summary(o_rec[[i]])[2]
+  y1 <- summary(o_rec[[i]])[5]
+  arrows(x0=TESTRANGE[i]-0.2,x1=TESTRANGE[i]-0.2,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="magenta")
+} )
 
 legend(x = "topleft", box.lwd = 2 , lwd=1, lty=1,
        legend=c("GSVA", "FCS", "ORA"),
        col = c("darkgreen","darkorange","magenta"))
 
 plot( TESTRANGE, lapply(g_prec,mean), type="b" , col="darkgreen", xlab="n reps",ylab="precision", ylim=c(0,1))
+lapply(1:length(g_prec), function(i) {
+  y0 <- summary(g_prec[[i]])[2]
+  y1 <- summary(g_prec[[i]])[5]
+  arrows(x0=TESTRANGE[i],x1=TESTRANGE[i],y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkgreen")
+} )
+
 points( TESTRANGE, lapply(f_prec,mean), type="b" , col="darkorange")
+lapply(1:length(f_prec), function(i) {
+  y0 <- summary(f_prec[[i]])[2]
+  y1 <- summary(f_prec[[i]])[5]
+  arrows(x0=TESTRANGE[i]+0.2,x1=TESTRANGE[i]+0.2,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkorange")
+} )
+
+
 points( TESTRANGE, lapply(o_prec,mean), type="b" , col="magenta")
+lapply(1:length(o_prec), function(i) {
+  y0 <- summary(o_prec[[i]])[2]
+  y1 <- summary(o_prec[[i]])[5]
+  arrows(x0=TESTRANGE[i]-0.2,x1=TESTRANGE[i]-0.2,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="magenta")
+} )
 
 par(mfrow=c(1,1))
 
@@ -493,11 +537,24 @@ signif(sapply(g_prec,mean),3)
 signif(sapply(f_prec,mean),3)
 signif(sapply(o_prec,mean),3)
 
+
+
+mean(sapply(g_rec,mean))
+mean(sapply(f_rec,mean))
+mean(sapply(o_rec,mean))
+
+mean(sapply(g_prec,mean))
+mean(sapply(f_prec,mean))
+mean(sapply(o_prec,mean))
+
+
 ```
 
 ## Session
 
 ```{r,session}
+
+save.image("downsample.Rdata")
 
 sessionInfo()
 
