@@ -391,7 +391,7 @@ Lets run some analysis.
 ```{r,split_n_run}
 
 REPS=10
-TESTRANGE <- seq(2,16,2)
+TESTRANGE <- c(2,3,4,5,6,8,10,12,16,22,30)
 
 res <- lapply( TESTRANGE , function(n) {
   gres <- mclapply(1:REPS,function(i) { gsva2(NPAT=n, i=i, gs) } , mc.cores=10)
@@ -431,31 +431,50 @@ Make some boxplots.
 
 ```{r,boxplots1}
 
-par(mfrow=c(2,3))
+par(mfrow=c(3,3))
 
-boxplot(g_rec,col="white",cex=0,main="GSVA", ylim=c(0,1))
-beeswarm(g_rec,add=TRUE)
-mtext("recall")
+MYMAX <- max(sapply(g_cons,max))
+boxplot(g_cons,col="white",cex=0,main="GSVA", ylim=c(0,MYMAX))
+beeswarm(g_cons,add=TRUE)
+mtext("consistent")
 
-boxplot(f_rec,col="white",cex=0,main="FCS", ylim=c(0,1))
-beeswarm(f_rec,add=TRUE)
-mtext("recall")
+MYMAX <- max(sapply(f_cons,max))
+boxplot(f_cons,col="white",cex=0,main="FCS", ylim=c(0,MYMAX))
+beeswarm(f_cons,add=TRUE)
+mtext("consistent")
 
-boxplot(o_rec,col="white",cex=0,main="ORA", ylim=c(0,1))
-beeswarm(o_rec,add=TRUE)
-mtext("recall")
+MYMAX <- max(sapply(o_cons,max))
+boxplot(o_cons,col="white",cex=0,main="ORA", ylim=c(0,MYMAX))
+beeswarm(o_cons,add=TRUE)
+mtext("consistent")
 
-boxplot(g_prec,col="white",cex=0,main="GSVA", ylim=c(0,1))
-beeswarm(g_prec,add=TRUE)
-mtext("precision")
+MYMAX <- max(sapply(g_inco,max))
+boxplot(g_inco,col="white",cex=0,main="GSVA", ylim=c(0,MYMAX))
+beeswarm(g_inco,add=TRUE)
+mtext("inconsistent")
 
-boxplot(f_prec,col="white",cex=0,main="FCS",xlab="n reps", ylim=c(0,1))
-beeswarm(f_prec,add=TRUE)
-mtext("precision")
+MYMAX <- max(sapply(f_inco,max))
+boxplot(f_inco,col="white",cex=0,main="FCS",xlab="n reps", ylim=c(0,MYMAX))
+beeswarm(f_inco,add=TRUE)
+mtext("inconsistent")
 
-boxplot(o_prec,col="white",cex=0,main="ORA", ylim=c(0,1))
-beeswarm(o_prec,add=TRUE)
-mtext("precision")
+MYMAX <- max(sapply(o_inco,max))
+boxplot(o_inco,col="white",cex=0,main="ORA", ylim=c(0,MYMAX))
+beeswarm(o_inco,add=TRUE)
+mtext("inconsistent")
+
+boxplot(g_ppi,col="white",cex=0,main="GSVA", ylim=c(0,1))
+beeswarm(g_ppi,add=TRUE)
+mtext("proportion inconsistent")
+
+boxplot(f_ppi,col="white",cex=0,main="FCS",xlab="n reps", ylim=c(0,1))
+beeswarm(f_ppi,add=TRUE)
+mtext("proportion inconsistent")
+
+boxplot(o_ppi,col="white",cex=0,main="ORA", ylim=c(0,1))
+beeswarm(o_ppi,add=TRUE)
+mtext("proportion inconsistent")
+
 
 par(mfrow=c(1,1))
 
