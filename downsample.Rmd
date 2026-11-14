@@ -82,9 +82,6 @@ head(ss)
 
 ```{r,downsample_gsva_tc}
 
-NPAT=3
-i=1
-
 gsva_tc <- function(NPAT,i,gs) {
   set.seed(i*100)
   PATS <- sample(unique(ss$patient),NPAT,replace=FALSE)
@@ -106,7 +103,6 @@ gsva_tc <- function(NPAT,i,gs) {
   return(m0)
 }
 
-
 run_fgsea <- function(NPAT,i,gs) {
   set.seed(i*100)
   PATS <- sample(unique(ss$patient),NPAT,replace=FALSE)
@@ -123,13 +119,12 @@ run_fgsea <- function(NPAT,i,gs) {
   results <- topTable(fit2, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
   stats <- results$t
   names(stats) <- rownames(results)
-  fres <- fgsea(pathways=gs, stats=stats, minSize=5 )
+  fres <- fgsea(pathways=gs, stats=stats, minSize=5, nproc=1 )
   fres <- as.data.frame(fres)
   fres <- fres[order(fres$pval),]
   head(fres)
   return(fres)
 }
-
 
 ora <- function(NPAT,i,gs) {
   set.seed(i*100)
@@ -161,9 +156,9 @@ ora <- function(NPAT,i,gs) {
 
 ```{r,overlaps}
 
-ores <- ora(NPAT=5,i,gs)
-fres <- run_fgsea(NPAT=5,i,gs)
-gres <- gsva_tc(NPAT=5,i,gs)
+ores <- ora(NPAT=37,i,gs)
+fres <- run_fgsea(NPAT=37,i,gs)
+gres <- gsva_tc(NPAT=37,i,gs)
 
 o_up <- subset(ores,padj < 0.05 & foldEnrichment > 0)$pathway
 o_dn <- subset(ores,padj < 0.05 & foldEnrichment < 0)$pathway
@@ -182,40 +177,87 @@ plot(euler(v1),quantities = TRUE)
 
 ```
 
+## Now look at different sample sizes
+
+```{r,sample_sizes}
+
+TESTRANGE <- c(2,3,4,5,6,8,10,12,16,22,30)
+NREPS=10
+
+myres <- lapply( TESTRANGE, function(n) {
+
+  gg <- unlist(mclapply(1:NREPS, function(i) {
+    gr <- gsva_tc(NPAT=n,i,gs)
+    nrow(subset(gr,adj.P.Val<0.05))
+  }, mc.cores=10))
+
+  ff <- unlist(mclapply(1:NREPS, function(i) {
+    fr <- run_fgsea(NPAT=n,i,gs)
+    nrow(subset(fr,padj<0.05))
+  }, mc.cores=10))
+
+  oo <- unlist(mclapply(1:NREPS, function(i) {
+    or <- ora(NPAT=n,i,gs)
+    nrow(subset(or,padj<0.05))
+  }, mc.cores=10))
+
+  return(list("gg"=gg,"ff"=ff,"oo"=oo))
+})
+
+ggres <- lapply(myres,function(x) { x[[1]] } )
+ffres <- lapply(myres,function(x) { x[[2]] } )
+oores <- lapply(myres,function(x) { x[[3]] } )
+
+MYMAX <- max(c(sapply(oores,function(x) { summary(x)[5] } ),
+  sapply(ffres,function(x) { summary(x)[5] } ),
+  sapply(ggres,function(x) { summary(x)[5] } ) ) )
+
+plot( sapply(ggres,mean), type="b" , col="darkgreen", xlab="n reps",ylab="no significant pathways",ylim=c(0,MYMAX), xaxt='n')
+axis(side = 1, at = 1:length(TESTRANGE), labels = TESTRANGE, tck = -0.01)
+lapply(1:length(ggres), function(i) {
+  y0 <- summary(ggres[[i]])[2]
+  y1 <- summary(ggres[[i]])[5]
+  arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkgreen")
+} )
+
+points( sapply(ffres,mean), type="b" , col="darkorange")
+lapply(1:length(ffres), function(i) {
+  y0 <- summary(ffres[[i]])[2]
+  y1 <- summary(ffres[[i]])[5]
+  arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkorange")
+} )
+
+points( sapply(oores,mean), type="b" , col="magenta")
+lapply(1:length(oores), function(i) {
+  y0 <- summary(oores[[i]])[2]
+  y1 <- summary(oores[[i]])[5]
+  arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="magenta")
+} )
+
+legend(x = "topleft", box.lwd = 2 , lwd=1, lty=1,
+       legend=c("GSVA", "FCS", "ORA"),
+       col = c("darkgreen","darkorange","magenta"))
+
+```
+
 ## Split and run
 
-Here we look at the recall of FDR<0.05.
+Here we downsample the samples and then compare the results to the full 37 patients.
 
 ```{r,split_n_run_functions}
 
-gsva2 <- function(NPAT1=18,NPAT2=5,i,gs) {
+gsva2 <- function(NPAT=5,i,gs) {
 
-  set.seed(i*100)
-  PATS1 <- sample(unique(ss$patient),NPAT1,replace=FALSE)
-  ssd1 <- ss[which(ss$patient %in% PATS1),]
-  ssd1$patient <- as.factor(as.character(ssd1$patient))
-  xd1 <- x[,colnames(x) %in% rownames(ssd1)]
-  xdf1 <- xd1[which(rowMeans(xd1) > 5),]
-  y1 <- DGEList(counts = xdf1)
-  y1 <- normLibSizes(y1) #edgeR
-  expr1 <- cpm(y1, log = TRUE, prior.count = 2)
-  param1 <- gsvaParam( expr = expr1, geneSets = gs, kcdf = "Gaussian", minSize = 5, maxSize = 5000)
-  scores1 <- gsva(param1)
-  design1 <- model.matrix(~ patient + tumor, data = ssd1)
-  fit1 <- limma::lmFit(scores1, design1)
-  fit1 <- limma::eBayes(fit1)
-  results1 <- limma::topTable( fit1, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
-  confects1 <- limma_confects(fit1, coef="tumorTRUE", fdr=0.05)
-  m1 <- merge(results1,confects1$table,by.x=0,by.y="name")
-  m1up <- subset(m1,adj.P.Val < 0.05 & logFC > 0 )$Row.names
+  # full 37
+  m1up <- subset(gres,adj.P.Val < 0.05 & logFC > 0 )$Row.names
   m1up <- paste(m1up,"up")
-  m1dn <- subset(m1,adj.P.Val < 0.05 & logFC < 0 )$Row.names
+  m1dn <- subset(gres,adj.P.Val < 0.05 & logFC < 0 )$Row.names
   m1dn <- paste(m1up,"dn")
   m1updn <- c(m1up,m1dn)
 
   set.seed(i*100)
-  PATS2 <- sample( setdiff(unique(ss$patient) , PATS1), NPAT2, replace=FALSE )
-  ssd2 <- ss[which(ss$patient %in% PATS2),]
+  PATS <- sample( ss$patient, NPAT, replace=FALSE )
+  ssd2 <- ss[which(ss$patient %in% PATS),]
   ssd2$patient <- as.factor(as.character(ssd2$patient))
   xd2 <- x[,colnames(x) %in% rownames(ssd2)]
   xdf2 <- xd2[which(rowMeans(xd2) > 5),]
