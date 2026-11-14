@@ -126,7 +126,6 @@ Pathways present in group A and B sets in the same direction were considered tru
 Pathways present in group B and not group A were considered false positives.
 Pathways present in group A and not group B were considered false negatives.
 
-
 # Results
 
 ## Survey of pathway enrichment analysis prioritisation across top-ranked journals
@@ -206,4 +205,13 @@ while GSVA log2FC (0.0088, negative) and GSVA confect (1.6e-7, positive).
 
 This result suggests that GSVA confect prioritisation is the approach least biased by gene set size.
 
+## Assessment of effect-size estimation accuracy
+
+Using a simulation approach ...
+
 ## Downsampling shows sensitivity and accuracy of GSVA confect results
+
+A downsampling approach found that:
+
+
+

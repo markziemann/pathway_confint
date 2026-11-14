@@ -220,18 +220,18 @@ lapply(1:length(ggres), function(i) {
   arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkgreen")
 } )
 
-points( sapply(ffres,mean), type="b" , col="darkorange")
+points( 1:length(ffres) +0.1, sapply(ffres,mean), type="b" , col="darkorange")
 lapply(1:length(ffres), function(i) {
   y0 <- summary(ffres[[i]])[2]
   y1 <- summary(ffres[[i]])[5]
-  arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkorange")
+  arrows(x0=i+0.1,x1=i+0.1,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkorange")
 } )
 
-points( sapply(oores,mean), type="b" , col="magenta")
+points( 1:length(oores) -0.1, sapply(oores,mean), type="b" , col="magenta")
 lapply(1:length(oores), function(i) {
   y0 <- summary(oores[[i]])[2]
   y1 <- summary(oores[[i]])[5]
-  arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="magenta")
+  arrows(x0=i-0.1,x1=i-0.1,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="magenta")
 } )
 
 legend(x = "topleft", box.lwd = 2 , lwd=1, lty=1,
@@ -281,51 +281,27 @@ gsva2 <- function(NPAT=5,i,gs) {
   m1_n <- length(m1updn)
   m2_n <- length(m2updn)
   ix_n <- length( intersect( m1updn , m2updn ))
-  fn_n <- length(setdiff(m1updn,m2updn))
   fp_n <- length(setdiff(m2updn,m1updn))
-  un_n <- length( union( m1updn , m2updn ))
-  jac <- ix_n / un_n
-  rec <- ix_n / m1_n
-  prec <- ix_n / ( ix_n + fp_n )
-  return(c("m1_n"=m1_n, "m2_n"=m2_n, "ix_n"=ix_n, "fn_n"=fn_n, "fp_n"=fp_n, "un_n"=un_n, "jac"=jac, "rec"=rec, "prec"=prec))
-
+  ppi <- fp_n / m2_n #proportion inconsistent
+  out <- c("m1_n"=m1_n, "m2_n"=m2_n, "ix_n"=ix_n, "fp_n"=fp_n, "ppi"=ppi)
+  return(out)
 }
 
-#gres <- mclapply(1:10,function(i) { gsva2(NPAT1=18,NPAT2=5,i=i,gs) } , mc.cores=10)
-#gdf <- do.call(rbind,gres)
-#colMeans(gdf)
+gtest <- mclapply(1:10,function(i) { gsva2(NPAT=5,i=i,gs) } , mc.cores=10)
+gdf <- do.call(rbind,gtest)
+colMeans(gdf)
 
-fgsea2 <- function(NPAT1=18,NPAT2=5,i,gs) {
+fgsea2 <- function(NPAT=5,i,gs) {
 
-  set.seed(i*100)
-  PATS1 <- sample(unique(ss$patient),NPAT1,replace=FALSE)
-  ssd1 <- ss[which(ss$patient %in% PATS1),]
-  ssd1$patient <- as.factor(as.character(ssd1$patient))
-  xd1 <- x[,colnames(x) %in% rownames(ssd1)]
-  xdf1 <- xd1[which(rowMeans(xd1) > 5),]
-
-  y1 <- DGEList(counts = xdf1)
-  y1 <- normLibSizes(y1)
-  design1 <- model.matrix(~ 0 + patient + tumor, data = ssd1)
-  v1 <- voom(y1, design1)
-  fit1 <- lmFit(v1, design1)
-  fit1 <- eBayes(fit1)
-  results1 <- topTable(fit1, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
-  stats1 <- results1$t
-  names(stats1) <- rownames(results1)
-  fres1 <- fgsea(pathways=gs, stats=stats1, minSize=5 ,nproc=1 )
-  fres1 <- as.data.frame(fres1)
-  fres1 <- fres1[order(fres1$pval),]
-
-  f1up <- subset(fres1[order(-fres1$NES),],padj<0.05)$pathway
+  f1up <- subset(fres,padj < 0.05 & ES > 0 )$pathway
   f1up <- paste(f1up,"up")
-  f1dn <- subset(fres1[order(fres1$NES),],padj<0.05)$pathway
-  f1dn <- paste(f1dn,"dn")
+  f1dn <- subset(fres,padj < 0.05 & ES < 0 )$pathway
+  f1dn <- paste(f1up,"dn")
   f1updn <- c(f1up,f1dn)
 
   set.seed(i*100)
-  PATS2 <- sample( setdiff(unique(ss$patient) , PATS1), NPAT2, replace=FALSE )
-  ssd2 <- ss[which(ss$patient %in% PATS2),]
+  PATS <- sample( ss$patient, NPAT, replace=FALSE )
+  ssd2 <- ss[which(ss$patient %in% PATS),]
   ssd2$patient <- as.factor(as.character(ssd2$patient))
   xd2 <- x[,colnames(x) %in% rownames(ssd2)]
   xdf2 <- xd2[which(rowMeans(xd2) > 5),]
@@ -352,50 +328,27 @@ fgsea2 <- function(NPAT1=18,NPAT2=5,i,gs) {
   f1_n <- length(f1updn)
   f2_n <- length(f2updn)
   ix_n <- length( intersect( f1updn , f2updn ))
-  un_n <- length( union( f1updn , f2updn ))
-  fn_n <- length(setdiff(f1updn,f2updn))
   fp_n <- length(setdiff(f2updn,f1updn))
-  jac <- ix_n / un_n
-  rec <- ix_n / f1_n
-  prec <- ix_n / ( ix_n + fp_n )
-  return(c("f1_n"=f1_n, "f2_n"=f2_n, "ix_n"=ix_n, "fn_n"=fn_n, "fp_n"=fp_n, "un_n"=un_n, "jac"=jac, "rec"=rec, "prec"=prec))
-
+  ppi <- fp_n / f2_n #proportion inconsistent
+  out <- c("f1_n"=f1_n, "f2_n"=f2_n, "ix_n"=ix_n, "fp_n"=fp_n, "ppi"=ppi)
+  return(out)
 }
 
-#fres <- mclapply(1:10,function(i) { fgsea2(NPAT1=18,NPAT2=5,i=i,gs) } , mc.cores=10)
-#fdf <- do.call(rbind,fres)
-#colMeans(fdf)
+ftest <- mclapply(1:10,function(i) { fgsea2(NPAT=10,i=i,gs) } , mc.cores=10)
+fdf <- do.call(rbind,ftest)
+colMeans(fdf)
 
-ora2 <- function(NPAT1=18,NPAT2=5,i,gs) {
+ora2 <- function(NPAT=5,i,gs) {
 
-  set.seed(i*100)
-  PATS1 <- sample(unique(ss$patient),NPAT1,replace=FALSE)
-  ssd1 <- ss[which(ss$patient %in% PATS1),]
-  ssd1$patient <- as.factor(as.character(ssd1$patient))
-  xd1 <- x[,colnames(x) %in% rownames(ssd1)]
-  xdf1 <- xd1[which(rowMeans(xd1) > 5),]
-
-  y1 <- DGEList(counts = xdf1)
-  y1 <- normLibSizes(y1)
-  design1 <- model.matrix(~ 0 + patient + tumor, data = ssd1)
-  v1 <- voom(y1, design1)
-  fit1 <- lmFit(v1, design1)
-  fit1 <- eBayes(fit1)
-  results1 <- topTable(fit1, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
-  up <- rownames(subset(results1,adj.P.Val<0.05 & logFC > 0))
-  dn <- rownames(subset(results1,adj.P.Val<0.05 & logFC < 0))
-  bg <- unique(rownames(results1))
-  ores_up <- fora(pathways=gs,genes=up,universe=bg,minSize=5)
-  ores_dn <- fora(pathways=gs,genes=dn,universe=bg,minSize=5)
-  o1up <- subset(ores_up,padj<0.05)$pathway
-  o1dn <- subset(ores_dn,padj<0.05)$pathway
+  o1up <- subset(ores,padj<0.05)$pathway
+  o1dn <- subset(ores,padj<0.05)$pathway
   o1up <- paste(o1up,"up")
   o1dn <- paste(o1dn,"dn")
   o1updn <- c(o1up,o1dn)
 
   set.seed(i*100)
-  PATS2 <- sample( setdiff(unique(ss$patient) , PATS1), NPAT2, replace=FALSE )
-  ssd2 <- ss[which(ss$patient %in% PATS2),]
+  PATS <- sample( ss$patient, NPAT, replace=FALSE )
+  ssd2 <- ss[which(ss$patient %in% PATS),]
   ssd2$patient <- as.factor(as.character(ssd2$patient))
   xd2 <- x[,colnames(x) %in% rownames(ssd2)]
   xdf2 <- xd2[which(rowMeans(xd2) > 5),]
@@ -421,19 +374,15 @@ ora2 <- function(NPAT1=18,NPAT2=5,i,gs) {
   o1_n <- length(o1updn)
   o2_n <- length(o2updn)
   ix_n <- length( intersect( o1updn , o2updn ))
-  un_n <- length( union( o1updn , o2updn ))
-  fn_n <- length(setdiff( o1updn, o2updn))
   fp_n <- length(setdiff( o2updn, o1updn))
-  jac <- ix_n / un_n
-  rec <- ix_n / o1_n
-  prec <- ix_n / ( ix_n + fp_n )
-  return(c("o1_n"=o1_n, "o2_n"=o2_n, "ix_n"=ix_n, "fn_n"=fn_n, "fp_n"=fp_n, "un_n"=un_n, "jac"=jac, "rec"=rec, "prec"=prec))
-
+  ppi <- fp_n / o2_n #proportion inconsistent
+  out <- c("o1_n"=o1_n, "o2_n"=o2_n, "ix_n"=ix_n, "fp_n"=fp_n, "ppi"=ppi)
+  return(out)
 }
 
-#ores <- mclapply(1:10,function(i) { ora2(NPAT1=18,NPAT2=5,i=i,gs) } , mc.cores=10)
-#odf <- do.call(rbind,ores)
-#colMeans(odf)
+otest <- mclapply(1:10,function(i) { ora2(NPAT=5,i=i,gs) } , mc.cores=10)
+odf <- do.call(rbind,otest)
+colMeans(odf)
 
 ```
 
@@ -445,30 +394,36 @@ REPS=10
 TESTRANGE <- seq(2,16,2)
 
 res <- lapply( TESTRANGE , function(n) {
-  gres <- mclapply(1:REPS,function(i) { gsva2(NPAT1=18, NPAT2=n, i=i, gs) } , mc.cores=10)
+  gres <- mclapply(1:REPS,function(i) { gsva2(NPAT=n, i=i, gs) } , mc.cores=10)
   gdf <- do.call(rbind,gres)
-  fres <- mclapply(1:REPS,function(i) { fgsea2(NPAT1=18, NPAT2=n, i=i, gs) } , mc.cores=10)
+  fres <- mclapply(1:REPS,function(i) { fgsea2(NPAT=n, i=i, gs) } , mc.cores=10)
   fdf <- do.call(rbind,fres)
-  ores <- mclapply(1:REPS,function(i) { ora2(NPAT1=18, NPAT2=n, i=i, gs) } , mc.cores=10)
+  ores <- mclapply(1:REPS,function(i) { ora2(NPAT=n, i=i, gs) } , mc.cores=10)
   odf <- do.call(rbind,ores)
   res <- list("g"=gdf,"f"=fdf,"o"=odf)
   return(res)
 })
 
-g_prec <- lapply(res, function(x) { x$g[,"prec"] } )
-names(g_prec) <- TESTRANGE
-g_rec <- lapply(res, function(x) { x$g[,"rec"] } )
-names(g_rec) <- TESTRANGE
+g_cons <- lapply(res, function(x) { x$g[,"ix_n"] } )
+names(g_cons) <- TESTRANGE
+g_inco <- lapply(res, function(x) { x$g[,"fp_n"] } )
+names(g_inco) <- TESTRANGE
+g_ppi <- lapply(res, function(x) { x$g[,"ppi"] } )
+names(g_ppi) <- TESTRANGE
 
-f_prec <- lapply(res, function(x) { x$f[,"prec"] } )
-names(f_prec) <- TESTRANGE
-f_rec <- lapply(res, function(x) { x$f[,"rec"] } )
-names(f_rec) <- TESTRANGE
+f_cons <- lapply(res, function(x) { x$f[,"ix_n"] } )
+names(f_cons) <- TESTRANGE
+f_inco <- lapply(res, function(x) { x$f[,"fp_n"] } )
+names(f_inco) <- TESTRANGE
+f_ppi <- lapply(res, function(x) { x$f[,"ppi"] } )
+names(f_ppi) <- TESTRANGE
 
-o_prec <- lapply(res, function(x) { x$o[,"prec"] } )
-names(o_prec) <- TESTRANGE
-o_rec <- lapply(res, function(x) { x$o[,"rec"] } )
-names(o_rec) <- TESTRANGE
+o_cons <- lapply(res, function(x) { x$o[,"ix_n"] } )
+names(o_cons) <- TESTRANGE
+o_inco <- lapply(res, function(x) { x$o[,"fp_n"] } )
+names(o_inco) <- TESTRANGE
+o_ppi <- lapply(res, function(x) { x$o[,"ppi"] } )
+names(o_ppi) <- TESTRANGE
 
 ```
 
