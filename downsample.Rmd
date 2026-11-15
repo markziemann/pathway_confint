@@ -122,7 +122,6 @@ run_fgsea <- function(NPAT,i,gs) {
   fres <- fgsea(pathways=gs, stats=stats, minSize=5, nproc=1 )
   fres <- as.data.frame(fres)
   fres <- fres[order(fres$pval),]
-  head(fres)
   return(fres)
 }
 
@@ -261,6 +260,7 @@ gsva2 <- function(NPAT=5,i,gs) {
   ssd2$patient <- as.factor(as.character(ssd2$patient))
   xd2 <- x[,colnames(x) %in% rownames(ssd2)]
   xdf2 <- xd2[which(rowMeans(xd2) > 5),]
+
   y2 <- DGEList(counts = xdf2)
   y2 <- normLibSizes(y2) #edgeR
   expr2 <- cpm(y2, log = TRUE, prior.count = 2)
@@ -270,7 +270,7 @@ gsva2 <- function(NPAT=5,i,gs) {
   fit2 <- limma::lmFit(scores2, design2)
   fit2 <- limma::eBayes(fit2)
   results2 <- limma::topTable( fit2, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
-  confects2 <- limma_confects(fit2, coef="tumorTRUE", fdr=0.05)
+  confects2 <- limma_confects( fit2, coef = "tumorTRUE", fdr=0.05)
   m2 <- merge(results2,confects2$table,by.x=0,by.y="name")
   m2up <- subset(m2,adj.P.Val < 0.05 & logFC > 0 )$Row.names
   m2up <- paste(m2up,"up")
@@ -296,7 +296,7 @@ fgsea2 <- function(NPAT=5,i,gs) {
   f1up <- subset(fres,padj < 0.05 & ES > 0 )$pathway
   f1up <- paste(f1up,"up")
   f1dn <- subset(fres,padj < 0.05 & ES < 0 )$pathway
-  f1dn <- paste(f1up,"dn")
+  f1dn <- paste(f2up,"dn")
   f1updn <- c(f1up,f1dn)
 
   set.seed(i*100)
@@ -493,76 +493,82 @@ arrows(x0=1,x1=1,y0=0,y1=2, length=0.1, angle=90, code=3 )
 
 ```{r,linegraph}
 
-par(mfrow=c(1,2))
+par(mfrow=c(2,1))
 
-plot( TESTRANGE, lapply(g_rec,mean), type="b" , col="darkgreen", xlab="n reps",ylab="recall", ylim=c(0,1))
-
-lapply(1:length(g_rec), function(i) {
-  y0 <- summary(g_rec[[i]])[2]
-  y1 <- summary(g_rec[[i]])[5]
-  arrows(x0=TESTRANGE[i],x1=TESTRANGE[i],y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkgreen")
+MYMAX <- max(sapply(g_cons,max))
+plot( 1:length(TESTRANGE), sapply(g_cons,mean), type="b", col="darkgreen", xlab="n reps",ylab="n consistent", ylim=c(0,MYMAX),  xaxt='n', lwd=1.5)
+axis(side = 1, at = 1:length(TESTRANGE), labels = TESTRANGE, tck = -0.05)
+lapply(1:length(g_cons), function(i) {
+  y0 <- summary(g_cons[[i]])[2]
+  y1 <- summary(g_cons[[i]])[5]
+  arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkgreen", lwd=1.5)
 } )
 
-points( TESTRANGE+0.2, lapply(f_rec,mean), type="b" , col="darkorange")
-lapply(1:length(f_rec), function(i) {
-  y0 <- summary(f_rec[[i]])[2]
-  y1 <- summary(f_rec[[i]])[5]
-  arrows(x0=TESTRANGE[i]+0.2,x1=TESTRANGE[i]+0.2,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkorange")
+points( (1:length(TESTRANGE))+0.1, sapply(f_cons,mean), type="b" , col="darkorange", lwd=1.5)
+lapply(1:length(f_cons), function(i) {
+  y0 <- summary(f_cons[[i]])[2]
+  y1 <- summary(f_cons[[i]])[5]
+  arrows(x0=i+0.1,x1=i+0.1,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkorange", lwd=1.5)
 } )
 
-points( TESTRANGE-0.2, lapply(o_rec,mean), type="b" , col="magenta")
-lapply(1:length(o_rec), function(i) {
-  y0 <- summary(o_rec[[i]])[2]
-  y1 <- summary(o_rec[[i]])[5]
-  arrows(x0=TESTRANGE[i]-0.2,x1=TESTRANGE[i]-0.2,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="magenta")
+points( (1:length(TESTRANGE))-0.1, sapply(o_cons,mean), type="b" , col="magenta", lwd=1.5)
+lapply(1:length(o_cons), function(i) {
+  y0 <- summary(o_cons[[i]])[2]
+  y1 <- summary(o_cons[[i]])[5]
+  arrows(x0=i-0.1,x1=i-0.1,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="magenta", lwd=1.5)
 } )
 
 legend(x = "topleft", box.lwd = 2 , lwd=1, lty=1,
        legend=c("GSVA", "FCS", "ORA"),
        col = c("darkgreen","darkorange","magenta"))
 
-plot( TESTRANGE, lapply(g_prec,mean), type="b" , col="darkgreen", xlab="n reps",ylab="precision", ylim=c(0,1))
-lapply(1:length(g_prec), function(i) {
-  y0 <- summary(g_prec[[i]])[2]
-  y1 <- summary(g_prec[[i]])[5]
-  arrows(x0=TESTRANGE[i],x1=TESTRANGE[i],y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkgreen")
+plot( sapply(g_ppi,mean), type="b" , col="darkgreen", xlab="n reps",ylab="proportion inconsistent", ylim=c(0,1), xaxt='n', lwd=1.5)
+axis(side = 1, at = 1:length(TESTRANGE), labels = TESTRANGE, tck = -0.05)
+lapply(1:length(g_ppi), function(i) {
+  y0 <- summary(g_ppi[[i]])[2]
+  y1 <- summary(g_ppi[[i]])[5]
+  arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkgreen", lwd=1.5)
 } )
 
-points( TESTRANGE, lapply(f_prec,mean), type="b" , col="darkorange")
-lapply(1:length(f_prec), function(i) {
-  y0 <- summary(f_prec[[i]])[2]
-  y1 <- summary(f_prec[[i]])[5]
-  arrows(x0=TESTRANGE[i]+0.2,x1=TESTRANGE[i]+0.2,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkorange")
+points( (1:length(TESTRANGE))+0.1, sapply(f_ppi,mean), type="b" , col="darkorange", lwd=1.5)
+lapply(1:length(f_ppi), function(i) {
+  y0 <- summary(f_ppi[[i]])[2]
+  y1 <- summary(f_ppi[[i]])[5]
+  arrows(x0=i+0.1,x1=i+0.1,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkorange", lwd=1.5)
 } )
 
-
-points( TESTRANGE, lapply(o_prec,mean), type="b" , col="magenta")
-lapply(1:length(o_prec), function(i) {
-  y0 <- summary(o_prec[[i]])[2]
-  y1 <- summary(o_prec[[i]])[5]
-  arrows(x0=TESTRANGE[i]-0.2,x1=TESTRANGE[i]-0.2,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="magenta")
+points( (1:length(TESTRANGE))-0.1, sapply(o_ppi,mean), type="b" , col="magenta", lwd=1.5)
+lapply(1:length(o_ppi), function(i) {
+  y0 <- summary(o_ppi[[i]])[2]
+  y1 <- summary(o_ppi[[i]])[5]
+  arrows(x0=i-0.1,x1=i-0.1,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="magenta", lwd=1.5)
 } )
 
 par(mfrow=c(1,1))
 
-signif(sapply(g_rec,mean),3)
-signif(sapply(f_rec,mean),3)
-signif(sapply(o_rec,mean),3)
+signif(sapply(g_cons,mean),3)
+signif(sapply(f_cons,mean),3)
+signif(sapply(o_cons,mean),3)
 
-signif(sapply(g_prec,mean),3)
-signif(sapply(f_prec,mean),3)
-signif(sapply(o_prec,mean),3)
+signif(sapply(g_inco,mean),3)
+signif(sapply(f_inco,mean),3)
+signif(sapply(o_inco,mean),3)
 
+signif(sapply(g_ppi,mean),3)
+signif(sapply(f_ppi,mean),3)
+signif(sapply(o_ppi,mean),3)
 
+mean(sapply(g_cons,mean))
+mean(sapply(f_cons,mean))
+mean(sapply(o_cons,mean))
 
-mean(sapply(g_rec,mean))
-mean(sapply(f_rec,mean))
-mean(sapply(o_rec,mean))
+mean(sapply(g_inco,mean))
+mean(sapply(f_inco,mean))
+mean(sapply(o_inco,mean))
 
-mean(sapply(g_prec,mean))
-mean(sapply(f_prec,mean))
-mean(sapply(o_prec,mean))
-
+mean(sapply(g_ppi,mean))
+mean(sapply(f_ppi,mean))
+mean(sapply(o_ppi,mean))
 
 ```
 
