@@ -119,6 +119,7 @@ run_fgsea <- function(NPAT,i,gs) {
   results <- topTable(fit2, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
   stats <- results$t
   names(stats) <- rownames(results)
+  set.seed(i*100)
   fres <- fgsea(pathways=gs, stats=stats, minSize=5, nproc=1 )
   fres <- as.data.frame(fres)
   fres <- fres[order(fres$pval),]
@@ -315,13 +316,13 @@ fgsea2 <- function(NPAT=5,i,gs) {
   results2 <- topTable(fit2, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
   stats2 <- results2$t
   names(stats2) <- rownames(results2)
+  set.seed(i*100)
   fres2 <- fgsea(pathways=gs, stats=stats2, minSize=5 , nproc=1 )
   fres2 <- as.data.frame(fres2)
-  fres2 <- fres2[order(fres2$pval),]
 
-  f2up <- subset(fres2[order(-fres2$NES),],padj<0.05)$pathway
+  f2up <- subset(fres2,padj<0.05 & ES > 0)$pathway
   f2up <- paste(f2up,"up")
-  f2dn <- subset(fres2[order(fres2$NES),],padj<0.05)$pathway
+  f2dn <- subset(fres2,padj<0.05 & ES < 0 )$pathway
   f2dn <- paste(f2dn,"dn")
   f2updn <- c(f2up,f2dn)
 
