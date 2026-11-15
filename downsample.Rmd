@@ -140,8 +140,9 @@ ora <- function(NPAT,i,gs) {
   fit <- lmFit(v, design)
   fit2 <- eBayes(fit)
   results <- topTable(fit2, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
-  up <- unique(rownames(head(subset(results, logFC>0),750)))
-  dn <- unique(rownames(head(subset(results, logFC<0),750)))
+  results <- results[order(results$P.Value),]
+  up <- unique(rownames(head(subset(results, logFC>0),1000)))
+  dn <- unique(rownames(head(subset(results, logFC<0),1000)))
   bg <- unique(rownames(results))
   ores_up <- fora(pathways=gs,genes=up,universe=bg,minSize=5)
   ores_dn <- fora(pathways=gs,genes=dn,universe=bg,minSize=5)
@@ -149,6 +150,7 @@ ora <- function(NPAT,i,gs) {
   ores <- rbind(ores_dn,ores_up)
   return(ores)
 }
+
 
 ```
 
@@ -363,8 +365,9 @@ ora2 <- function(NPAT=5,i,gs) {
   fit2 <- lmFit(v2, design2)
   fit2 <- eBayes(fit2)
   results2 <- topTable(fit2, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
-  up <- rownames(subset(results2,adj.P.Val<0.05 & logFC > 0))
-  dn <- rownames(subset(results2,adj.P.Val<0.05 & logFC < 0))
+  results2 <- results2[order(results2$P.Value),]
+  up <- unique(rownames(head(subset(results, logFC>0),1000)))
+  dn <- unique(rownames(head(subset(results, logFC<0),1000)))
   bg <- unique(rownames(results2))
   ores_up <- fora(pathways=gs,genes=up,universe=bg,minSize=5)
   ores_dn <- fora(pathways=gs,genes=dn,universe=bg,minSize=5)
