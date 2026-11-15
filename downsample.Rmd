@@ -296,7 +296,7 @@ fgsea2 <- function(NPAT=5,i,gs) {
   f1up <- subset(fres,padj < 0.05 & ES > 0 )$pathway
   f1up <- paste(f1up,"up")
   f1dn <- subset(fres,padj < 0.05 & ES < 0 )$pathway
-  f1dn <- paste(f2up,"dn")
+  f1dn <- paste(f1dn,"dn")
   f1updn <- c(f1up,f1dn)
 
   set.seed(i*100)
