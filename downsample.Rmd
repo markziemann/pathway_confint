@@ -156,6 +156,8 @@ ora <- function(NPAT,i,gs) {
 
 ```{r,overlaps}
 
+i=1
+
 ores <- ora(NPAT=37,i,gs)
 fres <- run_fgsea(NPAT=37,i,gs)
 gres <- gsva_tc(NPAT=37,i,gs)
