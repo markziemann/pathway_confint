@@ -1,0 +1,195 @@
+---
+title: "Confident effect sizes of pathway activity - simulation study"
+author: "Mark Ziemann"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    fig_width: 7
+    fig_height: 7
+theme: cosmo
+---
+
+Source: https://github.com/markziemann/pathway_confint
+
+## Libs
+
+```{r,libs}
+
+  library("GSVA")
+  library("edgeR")
+  library("kableExtra")
+  library("gplots")
+  library("fgsea")
+  library("beeswarm")
+  library("topconfects")
+  library("fgsea")
+  library("eulerr")
+  library("parallel")
+  library("BiocParallel")
+
+  register(MulticoreParam(workers = 1, progressbar = FALSE))
+
+```
+
+## Load gene expression data
+
+From GEO https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE158420
+GSE158420_counts.txt.gz
+
+Data was cleaned according to another script `GSE158420_geneexpression_prep.Rmd`
+
+```{r,loaddat}
+
+x <- readRDS("GSE158420_counts_fixed.rds")
+
+x[1:6,1:5]
+
+a <- as.data.frame(rowSums(x))
+
+colnames(a) <- "data"
+
+head(a)
+
+colSums(a) / 1e6
+
+```
+
+## Get reactome gene sets
+
+```{r,reactome}
+
+gmt_import <- function(gmtfile) {
+    genesetLines <- strsplit(readLines(gmtfile), "\t")
+    genesets <- lapply(genesetLines, utils::tail, -2)
+    names(genesets) <- unlist(lapply(genesetLines, head, 1))
+    attributes(genesets)$originfile <- gmtfile
+    genesets <- genesets[lapply(genesets,length)>0]
+    if( any(duplicated(names(genesets))) ) {
+        warning("Duplicated gene sets names detected")
+    }
+    genesets
+}
+
+gs <- gmt_import("ReactomePathways_2026-10-23.gmt")
+
+names(gs) <- sapply(1:length(gs), function(i) {
+  set.seed(i*100)
+  paste(sample(x=letters, size=20, replace=TRUE), collapse="",sep="")
+} )
+
+
+```
+
+## Downsample
+
+Simulate some differential gene expression data
+
+Effect size distributions
+
+low=seq(0.4,0.8,0.1)
+
+medium=seq(0.5,1.2,0.1)
+
+high=seq(0.8,1.6,0.1)
+
+```{r,downsample}
+
+FC=c("low","medium","high")
+
+gsets=gs
+
+simcounts <- function(counts, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.2, FRAC_DE_PW=0.1, effect="medium", gsets, seed=1) {
+
+# Use edgeR::thincounts to create pseudoreplicate datasets
+df = NULL
+for (k in paste0("data",1:(N_REPS*2)))  {
+  set.seed(seed*100)
+  b <- thinCounts(a,target.size=SUM_COUNT)
+  colnames(b) <- k
+  df <- cbind(df,b)
+}
+
+## Put some variance into the samples!
+if (VARIANCE > 0) {
+  #create some random values centred around 1 with some% error
+  rand <- matrix(log2(rnorm(nrow(a)*N_REPS*2 , 2, VARIANCE)),ncol=N_REPS*2)
+  #incorporate the noise
+  df <- round(df*rand)
+  #set any negative counts to zero
+  df <- apply(df, 2, function(x) { ifelse(x < 0, 0, x) })
+}
+
+# Select gene sets with more than 10 members present in the matrix
+gsets_sub <- which(unlist( lapply(gsets,function(x) {
+  length(which(rownames(a) %in% as.character(unlist(x)))) >10
+}  ) ) )
+gsets <- gsets[which(names(gsets) %in% names(gsets_sub))]
+
+
+NDIF=round(length(gsets)*FRAC_DE)
+if ( NDIF%%2==1 ) { print("odd") ; NDIF=NDIF-1 }
+
+if ( effect == "low" ) {
+  FC_VALS <- seq(0.4,0.8,0.1)
+}
+if ( effect == "medium" ) {
+  FC_VALS <- seq(0.5,1.2,0.1)
+}
+if ( effect == "high" ) {
+  FC_VALS <- seq(0.8,1.6,0.1)
+}
+
+# generate target numbers for each pathway
+set.seed(seed*1000)
+PWFC <- sample(x=FC_VALS,size=NDIF,replace=TRUE)
+
+# Flip half the signs
+PWFC <- PWFC * ( ( ( 1:length(PWFC) %% 2 ) *2 ) -1 )
+
+set.seed(seed*10000)
+DEPW_LIST <- sample(gsets , NDIF)
+
+# dataframe of pathway name and LOGFC
+DEPW_DF <- data.frame(names(DEPW_LIST),PWFC)
+DEGENES <- unique(unlist(DEPW_LIST))
+
+# for each DEGENE, get the fold change of it
+# which will be a product of all the
+DELFC <- sapply(DEGENES, function(g) {
+  matches <- names(which(sapply(DEPW_LIST, function(mygs) {
+    length(which( mygs == g ))
+  } ) == 1))
+  LFC <- prod( DEPW_DF[match(matches, DEPW_DF[,1]),2] )
+  return(LFC)
+} )
+names(DELFC) <- DEGENES
+
+# Now because the final FC of each gene is a product
+# we can find the mean of all the gene in the set
+# correlation of 0.7 between planned and final pathway level FCs
+DEPW_DF$final_LFC <- sapply(DEPW_DF$names.DEPW_LIST., function(mygs) {
+  setgenes <- DEPW_LIST[[which(names(DEPW_LIST) == mygs)]]
+  final_LFC <- mean(DELFC[which(names(DELFC) %in% setgenes)])
+  return(final_LFC)
+} )
+
+
+## Now simply incorporate these fold changes LOL
+
+
+}
+
+
+```
+
+## Session
+
+```{r,session}
+
+save.image("simpw.Rdata")
+
+sessionInfo()
+
+```
