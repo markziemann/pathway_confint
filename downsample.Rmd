@@ -366,8 +366,9 @@ ora2 <- function(NPAT=5,i,gs) {
   fit2 <- eBayes(fit2)
   results2 <- topTable(fit2, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
   results2 <- results2[order(results2$P.Value),]
-  up <- unique(rownames(head(subset(results, logFC>0),1000)))
-  dn <- unique(rownames(head(subset(results, logFC<0),1000)))
+
+  up <- unique(rownames(head(subset(results2, logFC>0),1000)))
+  dn <- unique(rownames(head(subset(results2, logFC<0),1000)))
   bg <- unique(rownames(results2))
   ores_up <- fora(pathways=gs,genes=up,universe=bg,minSize=5)
   ores_dn <- fora(pathways=gs,genes=dn,universe=bg,minSize=5)
@@ -396,7 +397,7 @@ Lets run some analysis.
 
 ```{r,split_n_run}
 
-REPS=10
+REPS=50
 TESTRANGE <- c(2,3,4,5,6,8,10,12,16,22,30)
 
 res <- lapply( TESTRANGE , function(n) {
@@ -438,50 +439,76 @@ Make some boxplots.
 ```{r,boxplots1}
 
 par(mfrow=c(3,3))
-
+par(mar=c(2.1,3.1,2.1,0.1))
 MYMAX <- max(sapply(g_cons,max))
-boxplot(g_cons,col="white",cex=0,main="GSVA", ylim=c(0,MYMAX))
-beeswarm(g_cons,add=TRUE)
-mtext("consistent")
-
+boxplot(g_cons,col="white",cex=0, main="GSVA", ylab="no. consistent",  ylim=c(0,MYMAX) )
+beeswarm(g_cons,add=TRUE,pch=19,cex=0.5,col="darkgray")
+par(mar=c(2.1,3.1,2.1,0.1))
 MYMAX <- max(sapply(f_cons,max))
-boxplot(f_cons,col="white",cex=0,main="FCS", ylim=c(0,MYMAX))
-beeswarm(f_cons,add=TRUE)
-mtext("consistent")
-
+boxplot(f_cons,col="white",cex=0,main="FCS", ylim=c(0,MYMAX) )
+beeswarm(f_cons,add=TRUE,pch=19,cex=0.5,col="darkgray")
+par(mar=c(2.1,3.1,2.1,0.1))
 MYMAX <- max(sapply(o_cons,max))
-boxplot(o_cons,col="white",cex=0,main="ORA", ylim=c(0,MYMAX))
-beeswarm(o_cons,add=TRUE)
-mtext("consistent")
-
+boxplot(o_cons,col="white",cex=0,main="ORA", ylim=c(0,MYMAX) )
+beeswarm(o_cons,add=TRUE,pch=19,cex=0.5,col="darkgray")
+par(mar=c(2.1,3.1,1.1,0.1))
 MYMAX <- max(sapply(g_inco,max))
-boxplot(g_inco,col="white",cex=0,main="GSVA", ylim=c(0,MYMAX))
-beeswarm(g_inco,add=TRUE)
-mtext("inconsistent")
-
+boxplot(g_inco,col="white",cex=0, ylim=c(0,MYMAX), ylab="no. inconsistent")
+beeswarm(g_inco,add=TRUE,pch=19,cex=0.5,col="darkgray")
+par(mar=c(2.1,3.1,1.1,0.1))
 MYMAX <- max(sapply(f_inco,max))
-boxplot(f_inco,col="white",cex=0,main="FCS",xlab="n reps", ylim=c(0,MYMAX))
-beeswarm(f_inco,add=TRUE)
-mtext("inconsistent")
-
+boxplot(f_inco,col="white",cex=0, ylim=c(0,MYMAX))
+beeswarm(f_inco,add=TRUE,pch=19,cex=0.5,col="darkgray")
+par(mar=c(2.1,3.1,1.1,0.1))
 MYMAX <- max(sapply(o_inco,max))
-boxplot(o_inco,col="white",cex=0,main="ORA", ylim=c(0,MYMAX))
-beeswarm(o_inco,add=TRUE)
-mtext("inconsistent")
+boxplot(o_inco,col="white",cex=0, ylim=c(0,MYMAX))
+beeswarm(o_inco,add=TRUE,pch=19,cex=0.5,col="darkgray")
+par(mar=c(4.1,3.1,1.1,0.1))
+boxplot(g_ppi,col="white",cex=0, ylim=c(0,1), ylab="proportion inconsistent")
+beeswarm(g_ppi,add=TRUE,pch=19,cex=0.5,col="darkgray")
+par(mar=c(4.1,3.1,1.1,0.1))
+boxplot(f_ppi,col="white",cex=0,xlab="sample size (n)", ylim=c(0,1))
+beeswarm(f_ppi,add=TRUE,pch=19,cex=0.5,col="darkgray")
+par(mar=c(4.1,3.1,1.1,0.1))
+boxplot(o_ppi,col="white",cex=0, ylim=c(0,1))
+beeswarm(o_ppi,add=TRUE,pch=19,cex=0.5,col="darkgray")
 
-boxplot(g_ppi,col="white",cex=0,main="GSVA", ylim=c(0,1))
-beeswarm(g_ppi,add=TRUE)
-mtext("proportion inconsistent")
-
-boxplot(f_ppi,col="white",cex=0,main="FCS",xlab="n reps", ylim=c(0,1))
-beeswarm(f_ppi,add=TRUE)
-mtext("proportion inconsistent")
-
-boxplot(o_ppi,col="white",cex=0,main="ORA", ylim=c(0,1))
-beeswarm(o_ppi,add=TRUE)
-mtext("proportion inconsistent")
-
-
+pdf("downsample.pdf",width=7,height=7)
+par(mfrow=c(3,3))
+par(mar=c(2.1,3.1,2.1,0.1))
+MYMAX <- max(sapply(g_cons,max))
+boxplot(g_cons,col="white",cex=0, main="GSVA", ylab="no. consistent",  ylim=c(0,MYMAX) )
+beeswarm(g_cons,add=TRUE,pch=19,cex=0.5,col="darkgray")
+par(mar=c(2.1,3.1,2.1,0.1))
+MYMAX <- max(sapply(f_cons,max))
+boxplot(f_cons,col="white",cex=0,main="FCS", ylim=c(0,MYMAX) )
+beeswarm(f_cons,add=TRUE,pch=19,cex=0.5,col="darkgray")
+par(mar=c(2.1,3.1,2.1,0.1))
+MYMAX <- max(sapply(o_cons,max))
+boxplot(o_cons,col="white",cex=0,main="ORA", ylim=c(0,MYMAX) )
+beeswarm(o_cons,add=TRUE,pch=19,cex=0.5,col="darkgray")
+par(mar=c(2.1,3.1,1.1,0.1))
+MYMAX <- max(sapply(g_inco,max))
+boxplot(g_inco,col="white",cex=0, ylim=c(0,MYMAX), ylab="no. inconsistent")
+beeswarm(g_inco,add=TRUE,pch=19,cex=0.5,col="darkgray")
+par(mar=c(2.1,3.1,1.1,0.1))
+MYMAX <- max(sapply(f_inco,max))
+boxplot(f_inco,col="white",cex=0, ylim=c(0,MYMAX))
+beeswarm(f_inco,add=TRUE,pch=19,cex=0.5,col="darkgray")
+par(mar=c(2.1,3.1,1.1,0.1))
+MYMAX <- max(sapply(o_inco,max))
+boxplot(o_inco,col="white",cex=0, ylim=c(0,MYMAX))
+beeswarm(o_inco,add=TRUE,pch=19,cex=0.5,col="darkgray")
+par(mar=c(4.1,3.1,1.1,0.1))
+boxplot(g_ppi,col="white",cex=0, ylim=c(0,1), ylab="proportion inconsistent")
+beeswarm(g_ppi,add=TRUE,pch=19,cex=0.5,col="darkgray")
+par(mar=c(4.1,3.1,1.1,0.1))
+boxplot(f_ppi,col="white",cex=0,xlab="sample size (n)", ylim=c(0,1))
+beeswarm(f_ppi,add=TRUE,pch=19,cex=0.5,col="darkgray")
+par(mar=c(4.1,3.1,1.1,0.1))
+boxplot(o_ppi,col="white",cex=0, ylim=c(0,1))
+beeswarm(o_ppi,add=TRUE,pch=19,cex=0.5,col="darkgray")
+dev.off()
 par(mfrow=c(1,1))
 
 ```
@@ -499,10 +526,12 @@ arrows(x0=1,x1=1,y0=0,y1=2, length=0.1, angle=90, code=3 )
 
 ```{r,linegraph}
 
+pdf("downsample2.pdf",width=7,height=7)
 par(mfrow=c(2,1))
+par(mar=c(3.1,4.1,1.1,0.1))
 
 MYMAX <- max(sapply(g_cons,max))
-plot( 1:length(TESTRANGE), sapply(g_cons,mean), type="b", col="darkgreen", xlab="n reps",ylab="n consistent", ylim=c(0,MYMAX),  xaxt='n', lwd=1.5)
+plot( 1:length(TESTRANGE), sapply(g_cons,mean), type="b", col="darkgreen",ylab="n consistent", ylim=c(0,MYMAX),  xaxt='n', lwd=1.5)
 axis(side = 1, at = 1:length(TESTRANGE), labels = TESTRANGE, tck = -0.05)
 lapply(1:length(g_cons), function(i) {
   y0 <- summary(g_cons[[i]])[2]
@@ -528,7 +557,8 @@ legend(x = "topleft", box.lwd = 2 , lwd=1, lty=1,
        legend=c("GSVA", "FCS", "ORA"),
        col = c("darkgreen","darkorange","magenta"))
 
-plot( sapply(g_ppi,mean), type="b" , col="darkgreen", xlab="n reps",ylab="proportion inconsistent", ylim=c(0,1), xaxt='n', lwd=1.5)
+par(mar=c(4.1,4.1,0.1,0.1))
+plot( sapply(g_ppi,mean), type="b" , col="darkgreen", xlab="sample size (n)",ylab="proportion inconsistent", ylim=c(0,1), xaxt='n', lwd=1.5)
 axis(side = 1, at = 1:length(TESTRANGE), labels = TESTRANGE, tck = -0.05)
 lapply(1:length(g_ppi), function(i) {
   y0 <- summary(g_ppi[[i]])[2]
@@ -549,32 +579,33 @@ lapply(1:length(o_ppi), function(i) {
   y1 <- summary(o_ppi[[i]])[5]
   arrows(x0=i-0.1,x1=i-0.1,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="magenta", lwd=1.5)
 } )
+dev.off()
 
 par(mfrow=c(1,1))
 
-signif(sapply(g_cons,mean),3)
-signif(sapply(f_cons,mean),3)
-signif(sapply(o_cons,mean),3)
+signif(sapply(g_cons,mean),4)
+signif(sapply(f_cons,mean),4)
+signif(sapply(o_cons,mean),4)
 
-signif(sapply(g_inco,mean),3)
-signif(sapply(f_inco,mean),3)
-signif(sapply(o_inco,mean),3)
+signif(sapply(g_inco,mean),4)
+signif(sapply(f_inco,mean),4)
+signif(sapply(o_inco,mean),4)
 
-signif(sapply(g_ppi,mean),3)
-signif(sapply(f_ppi,mean),3)
-signif(sapply(o_ppi,mean),3)
+signif(sapply(g_ppi,mean),4)
+signif(sapply(f_ppi,mean),4)
+signif(sapply(o_ppi,mean),4)
 
-mean(sapply(g_cons,mean))
-mean(sapply(f_cons,mean))
-mean(sapply(o_cons,mean))
+signif(mean(sapply(g_cons,mean)),4)
+signif(mean(sapply(f_cons,mean)),4)
+signif(mean(sapply(o_cons,mean)),4)
 
-mean(sapply(g_inco,mean))
-mean(sapply(f_inco,mean))
-mean(sapply(o_inco,mean))
+signif(mean(sapply(g_inco,mean)),4)
+signif(mean(sapply(f_inco,mean)),4)
+signif(mean(sapply(o_inco,mean)),4)
 
-mean(sapply(g_ppi,mean))
-mean(sapply(f_ppi,mean))
-mean(sapply(o_ppi,mean))
+signif(mean(sapply(g_ppi,mean)),4)
+signif(mean(sapply(f_ppi,mean)),4)
+signif(mean(sapply(o_ppi,mean)),4)
 
 ```
 
