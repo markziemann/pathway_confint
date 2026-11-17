@@ -28,6 +28,7 @@ Source: https://github.com/markziemann/pathway_confint
   library("eulerr")
   library("parallel")
   library("BiocParallel")
+  library("stringi")
 
   register(MulticoreParam(workers = 1, progressbar = FALSE))
 
@@ -80,6 +81,16 @@ names(gs) <- sapply(1:length(gs), function(i) {
 } )
 
 
+randomGeneSets <- function(a){
+  gsets<-sapply( rep(50,2000) , function(x) {
+    list(as.character(sample(rownames(a),x)))
+  } )
+  names(gsets) <- stri_rand_strings(length(gsets), 15, pattern = "[A-Za-z]")
+  return(gsets)
+}
+
+gs <- randomGeneSets(a)
+
 ```
 
 ## Downsample
@@ -127,7 +138,7 @@ simcounts <- function(counts, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.2, FRAC_DE_PW
   }  ) ) )
   gsets <- gsets[which(names(gsets) %in% names(gsets_sub))]
 
-  NDIF=round(length(gsets)*FRAC_DE)
+  NDIF=round(length(gsets)*FRAC_DE_PW)
   if ( NDIF%%2==1 ) { print("odd") ; NDIF=NDIF-1 }
 
   if ( effect == "low" ) {
@@ -193,8 +204,8 @@ simcounts <- function(counts, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.2, FRAC_DE_PW
   return(out)
 }
 
-testdata <- simcounts(counts=a, N_REPS=5, SUM_COUNT=20e6,
-  VARIANCE=0.3, FRAC_DE_PW=0.1, effect="medium", gsets=gs, seed=100)
+testdata <- simcounts(counts=a, N_REPS=8, SUM_COUNT=20e6,
+  VARIANCE=0.2, FRAC_DE_PW=0.1, effect="medium", gsets=gs, seed=100)
 
 str(testdata)
 
@@ -307,6 +318,125 @@ plot(euler(v1),quantities = TRUE)
 
 ```
 
+Now we can test GSVA.
+
+```{r,benchmark_gsva}
+
+run_gsva <- function(data,  gsets) {
+  mx <- data[[1]]
+  ss <- data.frame(colnames(mx))
+  ss$group <- c( rep(x="ctrl",times=nrow(ss)/2)  , rep(x="trt",times=nrow(ss)/2) )
+  rownames(ss) <- ss[,1]
+  design <- model.matrix(~ group, data = ss)
+  y <- DGEList(counts = mx)
+  y <- normLibSizes(y)
+  expr <- cpm(y, log = TRUE, prior.count = 2)
+  param <- gsvaParam( expr = expr, geneSets = gsets, kcdf = "Gaussian", minSize = 5, maxSize = 5000)
+  scores <- gsva(param)
+  fit <- limma::lmFit(scores, design)
+  fit <- limma::eBayes(fit)
+  results <- topTable(fit, coef = "grouptrt", number = Inf, adjust.method = "fdr")
+  confects <- limma_confects(fit, coef="grouptrt", fdr=0.05)
+  gres <- merge(results,confects$table,by.x=0,by.y="name")
+  gres <- gres[order(abs(gres$rank)),]
+  fcdf <- data[[2]]
+  out <- list("a"=mx, "fcdf"=fcdf, "gres"=gres)
+  return(out)
+}
+
+test_gsva <- run_gsva(data=testdata,  gsets=gs)
+
+test_gsva_up <- subset(test_gsva[[3]], adj.P.Val < 0.05 & logFC > 0 )$Row.names
+test_gsva_dn <- subset(test_gsva[[3]], adj.P.Val < 0.05 & logFC < 0 )$Row.names
+
+gt_up <- subset(test_gsva[[2]],final_LFC>0)[,1]
+gt_dn <- subset(test_gsva[[2]],final_LFC<0)[,1]
+
+v1 <- list("GSVA up"=test_gsva_up, "GSVA dn"=test_gsva_dn, "GT up"=gt_up, "GT_dn"=gt_dn)
+
+plot(euler(v1),quantities = TRUE)
+
+```
+
+## Run large scale analysis
+
+```{r,largescale_fdr}
+
+precrec <- function(seed=42, N_REPS=8, SUM_COUNT=50e6, VARIANCE=0.2, FRAC_DE_PW=0.1, effect="medium", gsets=gs) {
+  testdata <- simcounts(counts=a, N_REPS=N_REPS, SUM_COUNT=SUM_COUNT,
+    VARIANCE=VARIANCE, FRAC_DE_PW=FRAC_DE_PW, effect="medium", gsets=gsets, seed=seed)
+
+  gt_up <- subset(testdata[[2]],final_LFC>0)[,1]
+  gt_dn <- subset(testdata[[2]],final_LFC<0)[,1]
+  gt_up <- paste(gt_up,"up")
+  gt_dn <- paste(gt_dn,"dn")
+  gt_de <- c(gt_up,gt_dn)
+
+  test_fgsea <- run_fgsea(data=testdata, gsets=gsets, seed=seed)
+  test_fgsea_up <- subset(test_fgsea[[3]], padj < 0.05 & ES > 0 )$pathway
+  test_fgsea_dn <- subset(test_fgsea[[3]], padj < 0.05 & ES < 0 )$pathway
+  test_fgsea_up <- paste(test_fgsea_up,"up")
+  test_fgsea_dn <- paste(test_fgsea_dn,"dn")
+  test_fgsea_de <- c(test_fgsea_up,test_fgsea_dn)
+
+  test_fora <- run_fora(data=testdata,  gsets=gsets)
+  test_fora_up <- subset(test_fora[[3]], padj < 0.05 & foldEnrichment > 0 )$pathway
+  test_fora_dn <- subset(test_fora[[3]], padj < 0.05 & foldEnrichment < 0 )$pathway
+  test_fora_up <- paste(test_fora_up,"up")
+  test_fora_dn <- paste(test_fora_dn,"dn")
+  test_fora_de <- c(test_fora_up,test_fora_dn)
+
+  test_gsva <- run_gsva(data=testdata,  gsets=gsets)
+  test_gsva_up <- subset(test_gsva[[3]], adj.P.Val < 0.05 & logFC > 0 )$Row.names
+  test_gsva_dn <- subset(test_gsva[[3]], adj.P.Val < 0.05 & logFC < 0 )$Row.names
+  test_gsva_up <- paste(test_gsva_up,"up")
+  test_gsva_dn <- paste(test_gsva_dn,"dn")
+  test_gsva_de <- c(test_gsva_up,test_gsva_dn)
+
+  ix_fgsea <- intersect(test_fgsea_de, gt_de)
+  prec_fgsea <- length(ix_fgsea) / length(test_fgsea_de)
+  rec_fgsea <- length(ix_fgsea) / length(gt_de)
+
+  ix_fora <- intersect(test_fora_de, gt_de)
+  prec_fora <- length(ix_fora) / length(test_fora_de)
+  rec_fora <- length(ix_fora) / length(gt_de)
+
+  ix_gsva <- intersect(test_gsva_de, gt_de)
+  prec_gsva <- length(ix_gsva) / length(test_gsva_de)
+  rec_gsva <- length(ix_gsva) / length(gt_de)
+
+  out <- c("prec_fgsea"=prec_fgsea, "rec_fgsea"=rec_fgsea,
+    "prec_fora"=prec_fora, "rec_fora"=rec_fora,
+    "prec_gsva"=prec_gsva, "rec_gsva"=rec_gsva)
+
+  return(out)
+
+}
+
+
+
+res <- mclapply(1:10, function(seed) {
+  precrec(seed=seed, N_REPS=5, SUM_COUNT=40e6, VARIANCE=0.3, FRAC_DE_PW=0.2, effect="medium", gsets=gs)
+}, mc.cores=10)
+
+
+v1 <- list("GT"=gt_de, "FCS"=test_fgsea_de,
+  "GSVA"=test_gsva_de, "ORA"=test_fora_de)
+
+plot(euler(v1),quantities = TRUE)
+
+v1 <- list("GT up"=gt_up, "FCS up"=test_fgsea_up,
+  "GSVA up"=test_gsva_up, "ORA up"=test_fora_up )
+
+plot(euler(v1),quantities = TRUE)
+
+v1 <- list("GT dn"=gt_dn, "FCS dn"=test_fgsea_dn,
+  "GSVA dn"=test_gsva_dn, "ORA dn"=test_fora_dn )
+
+plot(euler(v1),quantities = TRUE)
+
+
+```
 
 ## Session
 
