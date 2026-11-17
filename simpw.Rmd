@@ -204,7 +204,7 @@ simcounts <- function(counts, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.2, FRAC_DE_PW
   return(out)
 }
 
-testdata <- simcounts(counts=a, N_REPS=8, SUM_COUNT=20e6,
+testdata <- simcounts(counts=a, N_REPS=8, SUM_COUNT=40e6,
   VARIANCE=0.2, FRAC_DE_PW=0.1, effect="medium", gsets=gs, seed=100)
 
 str(testdata)
@@ -346,13 +346,20 @@ run_gsva <- function(data,  gsets) {
 
 test_gsva <- run_gsva(data=testdata,  gsets=gs)
 
-test_gsva_up <- subset(test_gsva[[3]], adj.P.Val < 0.05 & logFC > 0 )$Row.names
-test_gsva_dn <- subset(test_gsva[[3]], adj.P.Val < 0.05 & logFC < 0 )$Row.names
+test_gsva_up <- subset(test_gsva[[3]], adj.P.Val < 0.005 & logFC > 0 )$Row.names
+test_gsva_dn <- subset(test_gsva[[3]], adj.P.Val < 0.005 & logFC < 0 )$Row.names
 
 gt_up <- subset(test_gsva[[2]],final_LFC>0)[,1]
 gt_dn <- subset(test_gsva[[2]],final_LFC<0)[,1]
 
-v1 <- list("GSVA up"=test_gsva_up, "GSVA dn"=test_gsva_dn, "GT up"=gt_up, "GT_dn"=gt_dn)
+v1 <- list("GSVA up 5%FDR"=test_gsva_up, "GSVA dn 5%FDR"=test_gsva_dn, "GT up"=gt_up, "GT_dn"=gt_dn)
+
+plot(euler(v1),quantities = TRUE)
+
+test_gsva_up <- subset(test_gsva[[3]], confect > 0.3 )$Row.names
+test_gsva_dn <- subset(test_gsva[[3]], confect < -0.3 )$Row.names
+
+v1 <- list("GSVA up 0.3 confect"=test_gsva_up, "GSVA dn 0.3 confect"=test_gsva_dn, "GT up"=gt_up, "GT_dn"=gt_dn)
 
 plot(euler(v1),quantities = TRUE)
 
@@ -393,27 +400,43 @@ precrec <- function(seed=42, N_REPS=8, SUM_COUNT=50e6, VARIANCE=0.2, FRAC_DE_PW=
   test_gsva_dn <- paste(test_gsva_dn,"dn")
   test_gsva_de <- c(test_gsva_up,test_gsva_dn)
 
+  test_gsva <- run_gsva(data=testdata,  gsets=gsets)
+  test_cfct_up <- subset(test_gsva[[3]], confect > 0.2 )$Row.names
+  test_cfct_dn <- subset(test_gsva[[3]], confect < -0.2 )$Row.names
+
+  test_cfct_up <- paste(test_cfct_up,"up")
+  test_cfct_dn <- paste(test_cfct_dn,"dn")
+  test_cfct_de <- c(test_cfct_up,test_cfct_dn)
+
   ix_fgsea <- intersect(test_fgsea_de, gt_de)
   prec_fgsea <- length(ix_fgsea) / length(test_fgsea_de)
   rec_fgsea <- length(ix_fgsea) / length(gt_de)
+  f1_fgsea  <- 2 / ( ( 1 / prec_fgsea ) + ( 1 / rec_fgsea ) )
 
   ix_fora <- intersect(test_fora_de, gt_de)
   prec_fora <- length(ix_fora) / length(test_fora_de)
   rec_fora <- length(ix_fora) / length(gt_de)
+  f1_fora  <- 2 / ( ( 1 / prec_fora ) + ( 1 / rec_fora ) )
 
   ix_gsva <- intersect(test_gsva_de, gt_de)
   prec_gsva <- length(ix_gsva) / length(test_gsva_de)
   rec_gsva <- length(ix_gsva) / length(gt_de)
+  f1_gsva  <- 2 / ( ( 1 / prec_gsva ) + ( 1 / rec_gsva ) )
+
+  ix_cfct <- intersect(test_cfct_de, gt_de)
+  prec_cfct <- length(ix_cfct) / length(test_cfct_de)
+  rec_cfct <- length(ix_cfct) / length(gt_de)
+  f1_cfct  <- 2 / ( ( 1 / prec_cfct ) + ( 1 / rec_cfct ) )
+
 
   out <- c("prec_fgsea"=prec_fgsea, "rec_fgsea"=rec_fgsea,
     "prec_fora"=prec_fora, "rec_fora"=rec_fora,
-    "prec_gsva"=prec_gsva, "rec_gsva"=rec_gsva)
+    "prec_gsva"=prec_gsva, "rec_gsva"=rec_gsva,
+    "prec_cfct"=prec_cfct, "rec_gsva"=rec_cfct )
 
   return(out)
 
 }
-
-
 
 res <- mclapply(1:10, function(seed) {
   precrec(seed=seed, N_REPS=5, SUM_COUNT=40e6, VARIANCE=0.3, FRAC_DE_PW=0.2, effect="medium", gsets=gs)
