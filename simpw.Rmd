@@ -94,7 +94,7 @@ medium=seq(0.5,1.2,0.1)
 
 high=seq(0.8,1.6,0.1)
 
-```{r,downsample}
+```{r,downsample_simulation_function}
 
 FC=c("low","medium","high")
 
@@ -102,93 +102,217 @@ gsets=gs
 
 simcounts <- function(counts, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.2, FRAC_DE_PW=0.1, effect="medium", gsets, seed=1) {
 
-# Use edgeR::thincounts to create pseudoreplicate datasets
-df = NULL
-for (k in paste0("data",1:(N_REPS*2)))  {
-  set.seed(seed*100)
-  b <- thinCounts(a,target.size=SUM_COUNT)
-  colnames(b) <- k
-  df <- cbind(df,b)
+  # Use edgeR::thincounts to create pseudoreplicate datasets
+  df  = NULL
+  for (k in paste0("data",1:(N_REPS*2)))  {
+    set.seed(seed*100)
+    b <- thinCounts(a,target.size=SUM_COUNT)
+    colnames(b) <- k
+    df <- cbind(df,b)
+  }
+
+  ## Put some variance into the samples!
+  if (VARIANCE > 0) {
+    #create some random values centred around 1 with some% error
+    rand <- matrix(log2(rnorm(nrow(a)*N_REPS*2 , 2, VARIANCE)),ncol=N_REPS*2)
+    #incorporate the noise
+    df <- round(df*rand)
+    #set any negative counts to zero
+    df <- apply(df, 2, function(x) { ifelse(x < 0, 0, x) })
+  }
+
+  # Select gene sets with more than 10 members present in the matrix
+  gsets_sub <- which(unlist( lapply(gsets,function(x) {
+    length(which(rownames(a) %in% as.character(unlist(x)))) >10
+  }  ) ) )
+  gsets <- gsets[which(names(gsets) %in% names(gsets_sub))]
+
+  NDIF=round(length(gsets)*FRAC_DE)
+  if ( NDIF%%2==1 ) { print("odd") ; NDIF=NDIF-1 }
+
+  if ( effect == "low" ) {
+    FC_VALS <- seq(0.4,0.8,0.1)
+  }
+  if ( effect == "medium" ) {
+    FC_VALS <- seq(0.5,1.2,0.1)
+  }
+  if ( effect == "high" ) {
+    FC_VALS <- seq(0.8,1.6,0.1)
+  }
+
+  # generate target numbers for each pathway
+  set.seed(seed*1000)
+  PWFC <- sample(x=FC_VALS,size=NDIF,replace=TRUE)
+
+  # Flip half the signs
+  PWFC <- PWFC * ( ( ( 1:length(PWFC) %% 2 ) *2 ) -1 )
+
+  # Select the DE pathways and genes
+  set.seed(seed*10000)
+  DEPW_LIST <- sample(gsets , NDIF)
+  # dataframe of pathway name and LOGFC
+  DEPW_DF <- data.frame(names(DEPW_LIST),PWFC)
+  DEGENES <- unique(unlist(DEPW_LIST))
+
+  # for each DEGENE, get the fold change of it
+  # which will be a product of all the
+  DELFC <- sapply(DEGENES, function(g) {
+    matches <- names(which(sapply(DEPW_LIST, function(mygs) {
+      length(which( mygs == g ))
+    } ) == 1))
+    LFC <- prod( DEPW_DF[match(matches, DEPW_DF[,1]),2] )
+    return(LFC)
+  } )
+  names(DELFC) <- DEGENES
+
+  # Now because the final FC of each gene is a product
+  # we can find the mean of all the gene in the set
+  # correlation of 0.7 between planned and final pathway level FCs
+  DEPW_DF$final_LFC <- sapply(DEPW_DF$names.DEPW_LIST., function(mygs) {
+    setgenes <- DEPW_LIST[[which(names(DEPW_LIST) == mygs)]]
+    final_LFC <- mean(DELFC[which(names(DELFC) %in% setgenes)])
+    return(final_LFC)
+  } )
+
+  ## Now simply incorporate these fold changes
+  # get the steady genes with no change
+  NCnames <- rownames(df[which(! rownames(df) %in% names(DELFC) ),])
+  NCvec <- rep(x=1,times=length(NCnames))
+  names(NCvec) <- NCnames
+  # combine with the DE fold changes converted from log to linear scale
+  FCvec <- c(2^DELFC,NCvec)
+  FCvec <- FCvec[match(rownames(df),names(FCvec))]
+  # apply fold changes to case group
+  CASE <- df[,(N_REPS+1):ncol(df)]
+  CASE <- round(apply(CASE,2, function(x) { x * FCvec } ))
+  # no changes to ctrl group
+  CTRL <- df[,1:N_REPS]
+  # output the combined
+  df2 <- as.data.frame(cbind(CTRL,CASE))
+  out <- list("a"=df2,"fcdf"=DEPW_DF)
+  return(out)
 }
 
-## Put some variance into the samples!
-if (VARIANCE > 0) {
-  #create some random values centred around 1 with some% error
-  rand <- matrix(log2(rnorm(nrow(a)*N_REPS*2 , 2, VARIANCE)),ncol=N_REPS*2)
-  #incorporate the noise
-  df <- round(df*rand)
-  #set any negative counts to zero
-  df <- apply(df, 2, function(x) { ifelse(x < 0, 0, x) })
-}
+testdata <- simcounts(counts=a, N_REPS=5, SUM_COUNT=20e6,
+  VARIANCE=0.3, FRAC_DE_PW=0.1, effect="medium", gsets=gs, seed=100)
 
-# Select gene sets with more than 10 members present in the matrix
-gsets_sub <- which(unlist( lapply(gsets,function(x) {
-  length(which(rownames(a) %in% as.character(unlist(x)))) >10
-}  ) ) )
-gsets <- gsets[which(names(gsets) %in% names(gsets_sub))]
-
-
-NDIF=round(length(gsets)*FRAC_DE)
-if ( NDIF%%2==1 ) { print("odd") ; NDIF=NDIF-1 }
-
-if ( effect == "low" ) {
-  FC_VALS <- seq(0.4,0.8,0.1)
-}
-if ( effect == "medium" ) {
-  FC_VALS <- seq(0.5,1.2,0.1)
-}
-if ( effect == "high" ) {
-  FC_VALS <- seq(0.8,1.6,0.1)
-}
-
-# generate target numbers for each pathway
-set.seed(seed*1000)
-PWFC <- sample(x=FC_VALS,size=NDIF,replace=TRUE)
-
-# Flip half the signs
-PWFC <- PWFC * ( ( ( 1:length(PWFC) %% 2 ) *2 ) -1 )
-
-set.seed(seed*10000)
-DEPW_LIST <- sample(gsets , NDIF)
-
-# dataframe of pathway name and LOGFC
-DEPW_DF <- data.frame(names(DEPW_LIST),PWFC)
-DEGENES <- unique(unlist(DEPW_LIST))
-
-# for each DEGENE, get the fold change of it
-# which will be a product of all the
-DELFC <- sapply(DEGENES, function(g) {
-  matches <- names(which(sapply(DEPW_LIST, function(mygs) {
-    length(which( mygs == g ))
-  } ) == 1))
-  LFC <- prod( DEPW_DF[match(matches, DEPW_DF[,1]),2] )
-  return(LFC)
-} )
-names(DELFC) <- DEGENES
-
-# Now because the final FC of each gene is a product
-# we can find the mean of all the gene in the set
-# correlation of 0.7 between planned and final pathway level FCs
-DEPW_DF$final_LFC <- sapply(DEPW_DF$names.DEPW_LIST., function(mygs) {
-  setgenes <- DEPW_LIST[[which(names(DEPW_LIST) == mygs)]]
-  final_LFC <- mean(DELFC[which(names(DELFC) %in% setgenes)])
-  return(final_LFC)
-} )
-
-
-## Now simply incorporate these fold changes LOL
-
-
-}
-
+str(testdata)
 
 ```
+
+## Function for running FGSEA
+
+Run fgsea and see if the NES prioritisation works.
+
+Run a basic test to show GT pathways are actually altered with FDR selection.
+
+Yes it confirms the ability of FGSEA to identify these pathways but OMG there are
+a lot of false positives.
+
+```{r,benchmark_fgsea}
+
+# the data object is a list that contains 1 count matrix and 1 DF of PW fold changes
+run_fgsea <- function(data,  gsets, seed=1) {
+  mx <- data[[1]]
+  ss <- data.frame(colnames(mx))
+  ss$group <- c( rep(x="ctrl",times=nrow(ss)/2)  , rep(x="trt",times=nrow(ss)/2) )
+  rownames(ss) <- ss[,1]
+  design <- model.matrix(~ group, data = ss)
+  y <- DGEList(counts = mx)
+  y <- normLibSizes(y)
+  v <- voom(y, design)
+  fit <- lmFit(v, design)
+  fit2 <- eBayes(fit)
+  results <- topTable(fit2, coef = "grouptrt", number = Inf, adjust.method = "fdr")
+  stats <- results$t
+  names(stats) <- rownames(results)
+  set.seed(seed*100)
+  fres <- fgsea(pathways=gsets, stats=stats, minSize=5 )
+  fres <- as.data.frame(fres)
+  fres <- fres[order(fres$pval),]
+  fcdf <- data[[2]]
+  out <- list("a"=mx, "fcdf"=fcdf, "fres"=fres)
+}
+
+test_fgsea <- run_fgsea(data=testdata, gsets=gs, seed=1)
+head(test_fgsea[[3]])
+
+test_fgsea_up <- subset(test_fgsea[[3]], padj < 0.05 & ES > 0 )$pathway
+test_fgsea_dn <- subset(test_fgsea[[3]], padj < 0.05 & ES < 0 )$pathway
+
+gt_up <- subset(test_fgsea[[2]],final_LFC>0)[,1]
+gt_dn <- subset(test_fgsea[[2]],final_LFC<0)[,1]
+
+v1 <- list("FCS up"=test_fgsea_up, "FCS dn"=test_fgsea_dn, "GT up"=gt_up, "GT_dn"=gt_dn)
+
+plot(euler(v1),quantities = TRUE)
+
+```
+
+Now do the same for ORA.
+
+We can see that ORA yields more false positives from this single test.
+I will need to run a lot more simulations to understand this in more
+detail.
+
+```{r,benchmark_ora}
+
+run_fora <- function(data,  gsets) {
+  mx <- data[[1]]
+  ss <- data.frame(colnames(mx))
+  ss$group <- c( rep(x="ctrl",times=nrow(ss)/2)  , rep(x="trt",times=nrow(ss)/2) )
+  rownames(ss) <- ss[,1]
+  design <- model.matrix(~ group, data = ss)
+  y <- DGEList(counts = mx)
+  y <- normLibSizes(y)
+  v <- voom(y, design)
+  fit <- lmFit(v, design)
+  fit2 <- eBayes(fit)
+  results <- topTable(fit2, coef = "grouptrt", number = Inf, adjust.method = "fdr")
+  # select genes for ORA
+  up <- unique(rownames(head(subset(results, logFC>0),1000)))
+  dn <- unique(rownames(head(subset(results, logFC<0),1000)))
+  bg <- unique(rownames(results))
+  ores_up <- fora(pathways=gs,genes=up,universe=bg,minSize=5)
+  ores_dn <- fora(pathways=gs,genes=dn,universe=bg,minSize=5)
+  # flip enrichment sign for down genes
+  ores_dn$foldEnrichment <- ores_dn$foldEnrichment * -1
+  # combine separate tests for up and down into single output
+  o_comb <- lapply(ores_up$pathway, function(x) {
+    upES <- subset(ores_up,pathway==x)[,"foldEnrichment"]
+    dnES <-  subset(ores_dn,pathway==x)[,"foldEnrichment"]
+    if ( abs(upES) >= abs(dnES) ) {
+      subset(ores_up,pathway==x)
+    } else {
+      subset(ores_dn,pathway==x)
+    }
+  } )
+  ores <- as.data.frame(do.call(rbind,o_comb))
+  fcdf <- data[[2]]
+  out <- list("a"=mx, "fcdf"=fcdf, "ores"=ores)
+  return(out)
+}
+
+test_fora <- run_fora(data=testdata,  gsets=gs)
+
+test_fora_up <- subset(test_fora[[3]], padj < 0.05 & foldEnrichment > 0 )$pathway
+test_fora_dn <- subset(test_fora[[3]], padj < 0.05 & foldEnrichment < 0 )$pathway
+
+gt_up <- subset(test_fora[[2]],final_LFC>0)[,1]
+gt_dn <- subset(test_fora[[2]],final_LFC<0)[,1]
+
+v1 <- list("ORA up"=test_fora_up, "ORA dn"=test_fora_dn, "GT up"=gt_up, "GT_dn"=gt_dn)
+
+plot(euler(v1),quantities = TRUE)
+
+```
+
 
 ## Session
 
 ```{r,session}
 
-save.image("simpw.Rdata")
+save.image("s'impw.Rdata")
 
 sessionInfo()
 
