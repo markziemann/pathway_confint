@@ -200,7 +200,18 @@ simcounts <- function(counts, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.2, FRAC_DE_PW
   CTRL <- df[,1:N_REPS]
   # output the combined
   df2 <- as.data.frame(cbind(CTRL,CASE))
-  out <- list("a"=df2,"fcdf"=DEPW_DF)
+
+  ss <- data.frame(colnames(df2))
+  ss$group <- c( rep(x="ctrl",times=nrow(ss)/2)  , rep(x="trt",times=nrow(ss)/2) )
+  rownames(ss) <- ss[,1]
+  design <- model.matrix(~ group, data = ss)
+  y <- DGEList(counts = df2)
+  y <- normLibSizes(y)
+  v <- voom(y, design)
+  fit <- lmFit(v, design)
+  fit2 <- eBayes(fit)
+  dge <- topTable(fit2, coef = "grouptrt", number = Inf, adjust.method = "fdr")
+  out <- list("a"=df2,"fcdf"=DEPW_DF, "dge"=dge)
   return(out)
 }
 
@@ -208,6 +219,10 @@ testdata <- simcounts(counts=a, N_REPS=8, SUM_COUNT=40e6,
   VARIANCE=0.2, FRAC_DE_PW=0.1, effect="medium", gsets=gs, seed=100)
 
 str(testdata)
+
+dge <- testdata[[3]]
+
+n_dge <- nrow(subset(dge,adj.P.Val<0.05))
 
 ```
 
@@ -224,35 +239,24 @@ a lot of false positives.
 
 # the data object is a list that contains 1 count matrix and 1 DF of PW fold changes
 run_fgsea <- function(data,  gsets, seed=1) {
-  mx <- data[[1]]
-  ss <- data.frame(colnames(mx))
-  ss$group <- c( rep(x="ctrl",times=nrow(ss)/2)  , rep(x="trt",times=nrow(ss)/2) )
-  rownames(ss) <- ss[,1]
-  design <- model.matrix(~ group, data = ss)
-  y <- DGEList(counts = mx)
-  y <- normLibSizes(y)
-  v <- voom(y, design)
-  fit <- lmFit(v, design)
-  fit2 <- eBayes(fit)
-  results <- topTable(fit2, coef = "grouptrt", number = Inf, adjust.method = "fdr")
-  stats <- results$t
-  names(stats) <- rownames(results)
+  de <- data[[3]]
+  stats <- de$t
+  names(stats) <- rownames(de)
   set.seed(seed*100)
   fres <- fgsea(pathways=gsets, stats=stats, minSize=5 )
   fres <- as.data.frame(fres)
   fres <- fres[order(fres$pval),]
-  fcdf <- data[[2]]
-  out <- list("a"=mx, "fcdf"=fcdf, "fres"=fres)
+  return(fres)
 }
 
 test_fgsea <- run_fgsea(data=testdata, gsets=gs, seed=1)
-head(test_fgsea[[3]])
+head(test_fgsea)
 
-test_fgsea_up <- subset(test_fgsea[[3]], padj < 0.05 & ES > 0 )$pathway
-test_fgsea_dn <- subset(test_fgsea[[3]], padj < 0.05 & ES < 0 )$pathway
+test_fgsea_up <- subset(test_fgsea, padj < 0.05 & ES > 0 )$pathway
+test_fgsea_dn <- subset(test_fgsea, padj < 0.05 & ES < 0 )$pathway
 
-gt_up <- subset(test_fgsea[[2]],final_LFC>0)[,1]
-gt_dn <- subset(test_fgsea[[2]],final_LFC<0)[,1]
+gt_up <- subset(testdata[[2]],final_LFC>0)[,1]
+gt_dn <- subset(testdata[[2]],final_LFC<0)[,1]
 
 v1 <- list("FCS up"=test_fgsea_up, "FCS dn"=test_fgsea_dn, "GT up"=gt_up, "GT_dn"=gt_dn)
 
@@ -269,21 +273,11 @@ detail.
 ```{r,benchmark_ora}
 
 run_fora <- function(data,  gsets) {
-  mx <- data[[1]]
-  ss <- data.frame(colnames(mx))
-  ss$group <- c( rep(x="ctrl",times=nrow(ss)/2)  , rep(x="trt",times=nrow(ss)/2) )
-  rownames(ss) <- ss[,1]
-  design <- model.matrix(~ group, data = ss)
-  y <- DGEList(counts = mx)
-  y <- normLibSizes(y)
-  v <- voom(y, design)
-  fit <- lmFit(v, design)
-  fit2 <- eBayes(fit)
-  results <- topTable(fit2, coef = "grouptrt", number = Inf, adjust.method = "fdr")
+  de <- data[[3]]
   # select genes for ORA
-  up <- unique(rownames(head(subset(results, logFC>0),1000)))
-  dn <- unique(rownames(head(subset(results, logFC<0),1000)))
-  bg <- unique(rownames(results))
+  up <- unique(rownames(head(subset(de, logFC>0),1000)))
+  dn <- unique(rownames(head(subset(de, logFC<0),1000)))
+  bg <- unique(rownames(de))
   ores_up <- fora(pathways=gs,genes=up,universe=bg,minSize=5)
   ores_dn <- fora(pathways=gs,genes=dn,universe=bg,minSize=5)
   # flip enrichment sign for down genes
@@ -299,18 +293,16 @@ run_fora <- function(data,  gsets) {
     }
   } )
   ores <- as.data.frame(do.call(rbind,o_comb))
-  fcdf <- data[[2]]
-  out <- list("a"=mx, "fcdf"=fcdf, "ores"=ores)
-  return(out)
+  return(ores)
 }
 
 test_fora <- run_fora(data=testdata,  gsets=gs)
 
-test_fora_up <- subset(test_fora[[3]], padj < 0.05 & foldEnrichment > 0 )$pathway
-test_fora_dn <- subset(test_fora[[3]], padj < 0.05 & foldEnrichment < 0 )$pathway
+test_fora_up <- subset(test_fora, padj < 0.05 & foldEnrichment > 0 )$pathway
+test_fora_dn <- subset(test_fora, padj < 0.05 & foldEnrichment < 0 )$pathway
 
-gt_up <- subset(test_fora[[2]],final_LFC>0)[,1]
-gt_dn <- subset(test_fora[[2]],final_LFC<0)[,1]
+gt_up <- subset(testdata[[2]],final_LFC>0)[,1]
+gt_dn <- subset(testdata[[2]],final_LFC<0)[,1]
 
 v1 <- list("ORA up"=test_fora_up, "ORA dn"=test_fora_dn, "GT up"=gt_up, "GT_dn"=gt_dn)
 
@@ -339,25 +331,23 @@ run_gsva <- function(data,  gsets) {
   confects <- limma_confects(fit, coef="grouptrt", fdr=0.05)
   gres <- merge(results,confects$table,by.x=0,by.y="name")
   gres <- gres[order(abs(gres$rank)),]
-  fcdf <- data[[2]]
-  out <- list("a"=mx, "fcdf"=fcdf, "gres"=gres)
-  return(out)
+  return(gres)
 }
 
 test_gsva <- run_gsva(data=testdata,  gsets=gs)
 
-test_gsva_up <- subset(test_gsva[[3]], adj.P.Val < 0.005 & logFC > 0 )$Row.names
-test_gsva_dn <- subset(test_gsva[[3]], adj.P.Val < 0.005 & logFC < 0 )$Row.names
+test_gsva_up <- subset(test_gsva, adj.P.Val < 0.005 & logFC > 0 )$Row.names
+test_gsva_dn <- subset(test_gsva, adj.P.Val < 0.005 & logFC < 0 )$Row.names
 
-gt_up <- subset(test_gsva[[2]],final_LFC>0)[,1]
-gt_dn <- subset(test_gsva[[2]],final_LFC<0)[,1]
+gt_up <- subset(testdata[[2]],final_LFC>0)[,1]
+gt_dn <- subset(testdata[[2]],final_LFC<0)[,1]
 
 v1 <- list("GSVA up 5%FDR"=test_gsva_up, "GSVA dn 5%FDR"=test_gsva_dn, "GT up"=gt_up, "GT_dn"=gt_dn)
 
 plot(euler(v1),quantities = TRUE)
 
-test_gsva_up <- subset(test_gsva[[3]], confect > 0.3 )$Row.names
-test_gsva_dn <- subset(test_gsva[[3]], confect < -0.3 )$Row.names
+test_gsva_up <- subset(test_gsva, confect > 0.3 )$Row.names
+test_gsva_dn <- subset(test_gsva, confect < -0.3 )$Row.names
 
 v1 <- list("GSVA up 0.3 confect"=test_gsva_up, "GSVA dn 0.3 confect"=test_gsva_dn, "GT up"=gt_up, "GT_dn"=gt_dn)
 
@@ -370,8 +360,11 @@ plot(euler(v1),quantities = TRUE)
 ```{r,largescale_fdr}
 
 precrec <- function(seed=42, N_REPS=8, SUM_COUNT=50e6, VARIANCE=0.2, FRAC_DE_PW=0.1, effect="medium", gsets=gs) {
+
   testdata <- simcounts(counts=a, N_REPS=N_REPS, SUM_COUNT=SUM_COUNT,
     VARIANCE=VARIANCE, FRAC_DE_PW=FRAC_DE_PW, effect="medium", gsets=gsets, seed=seed)
+
+  n_dge <- nrow(subset(testdata[[3]],adj.P.Val<0.05))
 
   gt_up <- subset(testdata[[2]],final_LFC>0)[,1]
   gt_dn <- subset(testdata[[2]],final_LFC<0)[,1]
@@ -380,29 +373,29 @@ precrec <- function(seed=42, N_REPS=8, SUM_COUNT=50e6, VARIANCE=0.2, FRAC_DE_PW=
   gt_de <- c(gt_up,gt_dn)
 
   test_fgsea <- run_fgsea(data=testdata, gsets=gsets, seed=seed)
-  test_fgsea_up <- subset(test_fgsea[[3]], padj < 0.05 & ES > 0 )$pathway
-  test_fgsea_dn <- subset(test_fgsea[[3]], padj < 0.05 & ES < 0 )$pathway
+  test_fgsea_up <- subset(test_fgsea, padj < 0.05 & ES > 0 )$pathway
+  test_fgsea_dn <- subset(test_fgsea, padj < 0.05 & ES < 0 )$pathway
   test_fgsea_up <- paste(test_fgsea_up,"up")
   test_fgsea_dn <- paste(test_fgsea_dn,"dn")
   test_fgsea_de <- c(test_fgsea_up,test_fgsea_dn)
 
   test_fora <- run_fora(data=testdata,  gsets=gsets)
-  test_fora_up <- subset(test_fora[[3]], padj < 0.05 & foldEnrichment > 0 )$pathway
-  test_fora_dn <- subset(test_fora[[3]], padj < 0.05 & foldEnrichment < 0 )$pathway
+  test_fora_up <- subset(test_fora, padj < 0.05 & foldEnrichment > 0 )$pathway
+  test_fora_dn <- subset(test_fora, padj < 0.05 & foldEnrichment < 0 )$pathway
   test_fora_up <- paste(test_fora_up,"up")
   test_fora_dn <- paste(test_fora_dn,"dn")
   test_fora_de <- c(test_fora_up,test_fora_dn)
 
   test_gsva <- run_gsva(data=testdata,  gsets=gsets)
-  test_gsva_up <- subset(test_gsva[[3]], adj.P.Val < 0.05 & logFC > 0 )$Row.names
-  test_gsva_dn <- subset(test_gsva[[3]], adj.P.Val < 0.05 & logFC < 0 )$Row.names
+  test_gsva_up <- subset(test_gsva, adj.P.Val < 0.05 & logFC > 0 )$Row.names
+  test_gsva_dn <- subset(test_gsva, adj.P.Val < 0.05 & logFC < 0 )$Row.names
   test_gsva_up <- paste(test_gsva_up,"up")
   test_gsva_dn <- paste(test_gsva_dn,"dn")
   test_gsva_de <- c(test_gsva_up,test_gsva_dn)
 
   test_gsva <- run_gsva(data=testdata,  gsets=gsets)
-  test_cfct_up <- subset(test_gsva[[3]], confect > 0.2 )$Row.names
-  test_cfct_dn <- subset(test_gsva[[3]], confect < -0.2 )$Row.names
+  test_cfct_up <- subset(test_gsva, confect > 0.2 )$Row.names
+  test_cfct_dn <- subset(test_gsva, confect < -0.2 )$Row.names
 
   test_cfct_up <- paste(test_cfct_up,"up")
   test_cfct_dn <- paste(test_cfct_dn,"dn")
@@ -428,44 +421,109 @@ precrec <- function(seed=42, N_REPS=8, SUM_COUNT=50e6, VARIANCE=0.2, FRAC_DE_PW=
   rec_cfct <- length(ix_cfct) / length(gt_de)
   f1_cfct  <- 2 / ( ( 1 / prec_cfct ) + ( 1 / rec_cfct ) )
 
-
-  out <- c("prec_fgsea"=prec_fgsea, "rec_fgsea"=rec_fgsea,
-    "prec_fora"=prec_fora, "rec_fora"=rec_fora,
-    "prec_gsva"=prec_gsva, "rec_gsva"=rec_gsva,
-    "prec_cfct"=prec_cfct, "rec_gsva"=rec_cfct )
+  out <- c("n_dge"=n_dge,
+    "prec_fgsea"=prec_fgsea, "rec_fgsea"=rec_fgsea, "f1_fgsea" = f1_fgsea,
+    "prec_fora"=prec_fora, "rec_fora"=rec_fora, "f1_fora" = f1_fora,
+    "prec_gsva"=prec_gsva, "rec_gsva"=rec_gsva, "f1_gsva" = f1_gsva,
+    "prec_cfct"=prec_cfct, "rec_cfct"=rec_cfct, "f1_cfct" = f1_cfct )
 
   return(out)
 
 }
 
 res <- mclapply(1:10, function(seed) {
-  precrec(seed=seed, N_REPS=5, SUM_COUNT=40e6, VARIANCE=0.3, FRAC_DE_PW=0.2, effect="medium", gsets=gs)
+  precrec(seed=seed, N_REPS=5, SUM_COUNT=10e6, VARIANCE=0.35, FRAC_DE_PW=0.05, effect="medium", gsets=gs)
 }, mc.cores=10)
 
+resdf <- do.call(rbind,res)
 
-v1 <- list("GT"=gt_de, "FCS"=test_fgsea_de,
-  "GSVA"=test_gsva_de, "ORA"=test_fora_de)
-
-plot(euler(v1),quantities = TRUE)
-
-v1 <- list("GT up"=gt_up, "FCS up"=test_fgsea_up,
-  "GSVA up"=test_gsva_up, "ORA up"=test_fora_up )
-
-plot(euler(v1),quantities = TRUE)
-
-v1 <- list("GT dn"=gt_dn, "FCS dn"=test_fgsea_dn,
-  "GSVA dn"=test_gsva_dn, "ORA dn"=test_fora_dn )
-
-plot(euler(v1),quantities = TRUE)
-
+resdf %>%
+  kbl(caption="Effect of the number of counts") %>%
+  kable_paper("hover", full_width = F)
 
 ```
+
+## Effect of increasing the number of counts
+
+```{r,count_effect}
+
+count_analysis <- lapply( seq(10,60,10), function(COUNTS) {
+  res <- mclapply(1:10, function(seed) {
+    precrec(seed=seed, N_REPS=8, SUM_COUNT=COUNTS * 1e6, VARIANCE=0.2, FRAC_DE_PW=0.2, effect="medium", gsets=gs)
+  }, mc.cores=10)
+  out <- do.call(rbind, res)
+  return(out)
+} )
+
+names(count_analysis) <- seq(10,60,10)
+count_analysis_tbl <- do.call(rbind,lapply(count_analysis,colMeans))
+
+count_analysis_tbl %>%
+  kbl(caption="Effect of the number of counts") %>%
+  kable_paper("hover", full_width = F)
+
+count_analysis_tbl[,c(1,4,7,10)]
+count_analysis_tbl[,c(2,5,8,11)]
+count_analysis_tbl[,c(3,6,9,12)]
+
+```
+
+## Effect of number of replicates
+
+```{r,nreps_effect}
+
+samplesize_analysis <- lapply( seq(2,10,1), function(N_REPS) {
+  res <- mclapply(1:10, function(seed) {
+    precrec(seed=seed, N_REPS=N_REPS, SUM_COUNT=30e6, VARIANCE=0.3, FRAC_DE_PW=0.2, effect="medium", gsets=gs)
+  }, mc.cores=10)
+  out <- do.call(rbind, res)
+  return(out)
+} )
+
+names(samplesize_analysis) <- seq(2,10,1)
+samplesize_analysis_tbl <- do.call(rbind,lapply(samplesize_analysis,colMeans))
+
+samplesize_analysis_tbl %>%
+  kbl(caption="Effect of the number of replicates") %>%
+  kable_paper("hover", full_width = F)
+
+samplesize_analysis_tbl[,c(1,4,7,10)]
+samplesize_analysis_tbl[,c(2,5,8,11)]
+samplesize_analysis_tbl[,c(3,6,9,12)]
+
+```
+
+## Effect of variation
+
+```{r,variation_effect}
+
+variation_analysis <- lapply( c(0,0.05,0.1,0.15,0.2,0.25,0.3,0.35), function(VARIANCE) {
+  res <- mclapply(1:10, function(seed) {
+    precrec(seed=seed, N_REPS=5, SUM_COUNT=30e6, VARIANCE=VARIANCE, FRAC_DE_PW=0.2, effect="medium", gsets=gs)
+  }, mc.cores=10)
+  out <- do.call(rbind, res)
+  return(out)
+} )
+
+names(variation_analysis) <- c(0,0.05,0.1,0.15,0.2,0.25,0.3,0.35)
+variation_analysis_tbl <- do.call(rbind,lapply(variation_analysis,colMeans))
+
+samplesize_analysis_tbl %>%
+  kbl(caption="Effect of the variance") %>%
+  kable_paper("hover", full_width = F)
+
+variation_analysis_tbl[,c(1,4,7,10)]
+variation_analysis_tbl[,c(2,5,8,11)]
+variation_analysis_tbl[,c(3,6,9,12)]
+
+```
+
 
 ## Session
 
 ```{r,session}
 
-save.image("s'impw.Rdata")
+save.image("simpw.Rdata")
 
 sessionInfo()
 
