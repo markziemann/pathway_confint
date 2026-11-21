@@ -17,6 +17,7 @@ Source: https://github.com/markziemann/pathway_confint
 
 ```{r,libs}
 
+suppressPackageStartupMessages({
   library("GSVA")
   library("edgeR")
   library("kableExtra")
@@ -29,8 +30,9 @@ Source: https://github.com/markziemann/pathway_confint
   library("parallel")
   library("BiocParallel")
   library("stringi")
+})
 
-  register(MulticoreParam(workers = 1, progressbar = FALSE))
+register(MulticoreParam(workers = 1, progressbar = FALSE))
 
 ```
 
@@ -80,9 +82,8 @@ names(gs) <- sapply(1:length(gs), function(i) {
   paste(sample(x=letters, size=20, replace=TRUE), collapse="",sep="")
 } )
 
-
 randomGeneSets <- function(a){
-  gsets<-sapply( rep(50,2000) , function(x) {
+  gsets <- sapply( rep(100,5000) , function(x) {
     list(as.character(sample(rownames(a),x)))
   } )
   names(gsets) <- stri_rand_strings(length(gsets), 15, pattern = "[A-Za-z]")
@@ -206,6 +207,8 @@ simcounts <- function(counts, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.2, FRAC_DE_PW
   rownames(ss) <- ss[,1]
   design <- model.matrix(~ group, data = ss)
   y <- DGEList(counts = df2)
+  keep <- filterByExpr(y)
+  y <- y[keep, , keep.lib.sizes = FALSE]
   y <- normLibSizes(y)
   v <- voom(y, design)
   fit <- lmFit(v, design)
@@ -223,6 +226,8 @@ str(testdata)
 dge <- testdata[[3]]
 
 n_dge <- nrow(subset(dge,adj.P.Val<0.05))
+
+n_dge
 
 ```
 
@@ -249,26 +254,9 @@ run_fgsea <- function(data,  gsets, seed=1) {
   return(fres)
 }
 
-test_fgsea <- run_fgsea(data=testdata, gsets=gs, seed=1)
-head(test_fgsea)
-
-test_fgsea_up <- subset(test_fgsea, padj < 0.05 & ES > 0 )$pathway
-test_fgsea_dn <- subset(test_fgsea, padj < 0.05 & ES < 0 )$pathway
-
-gt_up <- subset(testdata[[2]],final_LFC>0)[,1]
-gt_dn <- subset(testdata[[2]],final_LFC<0)[,1]
-
-v1 <- list("FCS up"=test_fgsea_up, "FCS dn"=test_fgsea_dn, "GT up"=gt_up, "GT_dn"=gt_dn)
-
-plot(euler(v1),quantities = TRUE)
-
 ```
 
-Now do the same for ORA.
-
-We can see that ORA yields more false positives from this single test.
-I will need to run a lot more simulations to understand this in more
-detail.
+## Function for running ORA
 
 ```{r,benchmark_ora}
 
@@ -296,21 +284,9 @@ run_fora <- function(data,  gsets) {
   return(ores)
 }
 
-test_fora <- run_fora(data=testdata,  gsets=gs)
-
-test_fora_up <- subset(test_fora, padj < 0.05 & foldEnrichment > 0 )$pathway
-test_fora_dn <- subset(test_fora, padj < 0.05 & foldEnrichment < 0 )$pathway
-
-gt_up <- subset(testdata[[2]],final_LFC>0)[,1]
-gt_dn <- subset(testdata[[2]],final_LFC<0)[,1]
-
-v1 <- list("ORA up"=test_fora_up, "ORA dn"=test_fora_dn, "GT up"=gt_up, "GT_dn"=gt_dn)
-
-plot(euler(v1),quantities = TRUE)
-
 ```
 
-Now we can test GSVA.
+## Function for running GSVA
 
 ```{r,benchmark_gsva}
 
@@ -321,6 +297,8 @@ run_gsva <- function(data,  gsets) {
   rownames(ss) <- ss[,1]
   design <- model.matrix(~ group, data = ss)
   y <- DGEList(counts = mx)
+  keep <- filterByExpr(y)
+  y <- y[keep, , keep.lib.sizes = FALSE]
   y <- normLibSizes(y)
   expr <- cpm(y, log = TRUE, prior.count = 2)
   param <- gsvaParam( expr = expr, geneSets = gsets, kcdf = "Gaussian", minSize = 5, maxSize = 5000)
@@ -334,22 +312,66 @@ run_gsva <- function(data,  gsets) {
   return(gres)
 }
 
-test_gsva <- run_gsva(data=testdata,  gsets=gs)
+```
 
-test_gsva_up <- subset(test_gsva, adj.P.Val < 0.005 & logFC > 0 )$Row.names
-test_gsva_dn <- subset(test_gsva, adj.P.Val < 0.005 & logFC < 0 )$Row.names
+## Small-scale comparison of FCS, ORA, GSVA and confects
+
+I think this demonstration shows he power o applying confects.
+
+```{r, small_scale_demonstration}
+
+testdata <- simcounts(counts=a, N_REPS=5, SUM_COUNT=20e6,
+  VARIANCE=0.4, FRAC_DE_PW=0.03, effect="medium", gsets=gs, seed=4)
+
+str(testdata)
+
+dge <- testdata[[3]]
+
+n_dge <- nrow(subset(dge,adj.P.Val<0.05))
+
+n_dge
+
+test_fgsea <- run_fgsea(data=testdata, gsets=gs, seed=1)
+head(test_fgsea)
+
+test_fgsea_up <- subset(test_fgsea, padj < 0.05 & ES > 0 )$pathway
+test_fgsea_dn <- subset(test_fgsea, padj < 0.05 & ES < 0 )$pathway
 
 gt_up <- subset(testdata[[2]],final_LFC>0)[,1]
 gt_dn <- subset(testdata[[2]],final_LFC<0)[,1]
 
-v1 <- list("GSVA up 5%FDR"=test_gsva_up, "GSVA dn 5%FDR"=test_gsva_dn, "GT up"=gt_up, "GT_dn"=gt_dn)
+v1 <- list("FCS up"=test_fgsea_up, "FCS dn"=test_fgsea_dn, "GT up"=gt_up, "GT_dn"=gt_dn)
 
 plot(euler(v1),quantities = TRUE)
 
-test_gsva_up <- subset(test_gsva, confect > 0.3 )$Row.names
-test_gsva_dn <- subset(test_gsva, confect < -0.3 )$Row.names
+test_fora <- run_fora(data=testdata,  gsets=gs)
 
-v1 <- list("GSVA up 0.3 confect"=test_gsva_up, "GSVA dn 0.3 confect"=test_gsva_dn, "GT up"=gt_up, "GT_dn"=gt_dn)
+test_fora_up <- subset(test_fora, padj < 0.05 & foldEnrichment > 0 )$pathway
+test_fora_dn <- subset(test_fora, padj < 0.05 & foldEnrichment < 0 )$pathway
+
+gt_up <- subset(testdata[[2]],final_LFC>0)[,1]
+gt_dn <- subset(testdata[[2]],final_LFC<0)[,1]
+
+v1 <- list("ORA up"=test_fora_up, "ORA dn"=test_fora_dn, "GT up"=gt_up, "GT_dn"=gt_dn)
+
+plot(euler(v1),quantities = TRUE)
+
+test_gsva <- run_gsva(data=testdata,  gsets=gs)
+
+test_gsva_up <- subset(test_gsva, adj.P.Val < 0.05 & logFC > 0 )$Row.names
+test_gsva_dn <- subset(test_gsva, adj.P.Val < 0.05 & logFC < 0 )$Row.names
+
+gt_up <- subset(testdata[[2]],final_LFC>0)[,1]
+gt_dn <- subset(testdata[[2]],final_LFC<0)[,1]
+
+v1 <- list("GSVA up"=test_gsva_up, "GSVA dn"=test_gsva_dn, "GT up"=gt_up, "GT_dn"=gt_dn)
+
+plot(euler(v1),quantities = TRUE)
+
+test_gsva_up <- subset(test_gsva, confect > 0.2 )$Row.names
+test_gsva_dn <- subset(test_gsva, confect < -0.2 )$Row.names
+
+v1 <- list("Confect up"=test_gsva_up, "Confect dn"=test_gsva_dn, "GT up"=gt_up, "GT_dn"=gt_dn)
 
 plot(euler(v1),quantities = TRUE)
 
@@ -438,7 +460,7 @@ res <- mclapply(1:10, function(seed) {
 resdf <- do.call(rbind,res)
 
 resdf %>%
-  kbl(caption="Effect of the number of counts") %>%
+  kbl(caption="Repeatability with multiple seeds") %>%
   kable_paper("hover", full_width = F)
 
 ```
