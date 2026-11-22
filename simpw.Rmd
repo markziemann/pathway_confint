@@ -615,6 +615,138 @@ variation_analysis_tbl[,c(4,7,10,13)]
 
 ```
 
+## Function for charting the data
+
+Chart the median and IQR for these tools across values.
+
+```{r,charts}
+
+charting_function <- function(data,xlab,main,ylim=c(0,1)) {
+  z <- data
+  xlabs <- names(z)
+  ndeg <- sapply(z, function(x) { mean(x[,1]) } )
+  prec_fgsea_q1 <- unname(unlist(lapply(z, function(x) { summary(x[,2])[2] } )))
+  prec_fgsea_q3 <- unname(unlist(lapply(z, function(x) { summary(x[,2])[5] } )))
+  prec_fgsea_med <- unname(unlist(lapply(z, function(x) { summary(x[,2])[3] } )))
+  rec_fgsea_q1 <- unname(unlist(lapply(z, function(x) { summary(x[,3])[2] } )))
+  rec_fgsea_q3 <- unname(unlist(lapply(z, function(x) { summary(x[,3])[5] } )))
+  rec_fgsea_med <- unname(unlist(lapply(z, function(x) { summary(x[,3])[3] } )))
+  f1_fgsea_q1 <- unname(unlist(lapply(z, function(x) { summary(x[,4])[2] } )))
+  f1_fgsea_q3 <- unname(unlist(lapply(z, function(x) { summary(x[,4])[5] } )))
+  f1_fgsea_med <- unname(unlist(lapply(z, function(x) { summary(x[,4])[3] } )))
+  prec_fora_q1 <- unname(unlist(lapply(z, function(x) { summary(x[,5])[2] } )))
+  prec_fora_q3 <- unname(unlist(lapply(z, function(x) { summary(x[,5])[5] } )))
+  prec_fora_med <- unname(unlist(lapply(z, function(x) { summary(x[,5])[3] } )))
+  rec_fora_q1 <- unname(unlist(lapply(z, function(x) { summary(x[,6])[2] } )))
+  rec_fora_q3 <- unname(unlist(lapply(z, function(x) { summary(x[,6])[5] } )))
+  rec_fora_med <- unname(unlist(lapply(z, function(x) { summary(x[,6])[3] } )))
+  f1_fora_q1 <- unname(unlist(lapply(z, function(x) { summary(x[,7])[2] } )))
+  f1_fora_q3 <- unname(unlist(lapply(z, function(x) { summary(x[,7])[5] } )))
+  f1_fora_med <- unname(unlist(lapply(z, function(x) { summary(x[,7])[3] } )))
+  prec_gsva_q1 <- unname(unlist(lapply(z, function(x) { summary(x[,8])[2] } )))
+  prec_gsva_q3 <- unname(unlist(lapply(z, function(x) { summary(x[,8])[5] } )))
+  prec_gsva_med <- unname(unlist(lapply(z, function(x) { summary(x[,8])[3] } )))
+  rec_gsva_q1 <- unname(unlist(lapply(z, function(x) { summary(x[,9])[2] } )))
+  rec_gsva_q3 <- unname(unlist(lapply(z, function(x) { summary(x[,9])[5] } )))
+  rec_gsva_med <- unname(unlist(lapply(z, function(x) { summary(x[,9])[3] } )))
+  f1_gsva_q1 <- unname(unlist(lapply(z, function(x) { summary(x[,10])[2] } )))
+  f1_gsva_q3 <- unname(unlist(lapply(z, function(x) { summary(x[,10])[5] } )))
+  f1_gsva_med <- unname(unlist(lapply(z, function(x) { summary(x[,10])[3] } )))
+  prec_cfct_q1 <- unname(unlist(lapply(z, function(x) { summary(x[,11])[2] } )))
+  prec_cfct_q3 <- unname(unlist(lapply(z, function(x) { summary(x[,11])[5] } )))
+  prec_cfct_med <- unname(unlist(lapply(z, function(x) { summary(x[,11])[3] } )))
+  rec_cfct_q1 <- unname(unlist(lapply(z, function(x) { summary(x[,12])[2] } )))
+  rec_cfct_q3 <- unname(unlist(lapply(z, function(x) { summary(x[,12])[5] } )))
+  rec_cfct_med <- unname(unlist(lapply(z, function(x) { summary(x[,12])[3] } )))
+  f1_cfct_q1 <- unname(unlist(lapply(z, function(x) { summary(x[,13])[2] } )))
+  f1_cfct_q3 <- unname(unlist(lapply(z, function(x) { summary(x[,13])[5] } )))
+  f1_cfct_med <- unname(unlist(lapply(z, function(x) { summary(x[,13])[3] } )))
+  ## PRECISION
+  plot( 1:length(xlabs)-0.1, prec_fgsea_med, type="b", col="darkorange", xlab=xlab, ylab="precision",ylim=ylim, xaxt='n', xlim=c(0.7,length(xlabs)+0.3), lwd=1.5)
+  axis(side = 1, at = 1:length(xlabs), labels = xlabs, tck = -0.01)
+  lapply(1:length(xlabs), function(i) {
+    y0 <- prec_fgsea_q1[i] ; y1 <- prec_fgsea_q3[i]
+    arrows(x0=i-0.1,x1=i-0.1,y0=y0,y1=y1, length=0.05, angle=90, code=3 ,col="darkorange")
+  } )
+  points( 1:length(xlabs), prec_fora_med , type="b", col="magenta", lwd=1.5)
+  lapply(1:length(xlabs), function(i) {
+    y0 <- prec_fora_q1[i] ; y1 <- prec_fora_q3[i]
+    arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.05, angle=90, code=3 ,col="magenta")
+  } )
+  points( 1:length(xlabs), prec_gsva_med, type="b", col="darkgreen", lwd=1.5)
+  lapply(1:length(xlabs), function(i) {
+    y0 <- prec_gsva_q1[i] ; y1 <- prec_gsva_q3[i]
+    arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.05, angle=90, code=3 ,col="darkgreen")
+  } )
+  points( 1:length(xlabs)+0.1, prec_cfct_med, type="b", col="red", lwd=1.5)
+  lapply(1:length(xlabs), function(i) {
+    y0 <- prec_cfct_q1[i] ; y1 <- prec_cfct_q3[i]
+    arrows(x0=i+0.1,x1=i+0.1,y0=y0,y1=y1, length=0.05, angle=90, code=3 ,col="red")
+  } )
+  ## RECALL
+  plot( 1:length(xlabs)-0.1 , rec_fgsea_med, type="b", col="darkorange", xlab=xlab, ylab="recall",ylim=ylim, xaxt='n', xlim=c(0.7,length(xlabs)+0.3), lwd=1.5, main=main)
+  axis(side = 1, at = 1:length(xlabs), labels = xlabs, tck = -0.01)
+  lapply(1:length(xlabs), function(i) {
+    y0 <- rec_fgsea_q1[i];  y1 <- rec_fgsea_q3[i]
+    arrows(x0=i-0.1,x1=i-0.1,y0=y0,y1=y1, length=0.05, angle=90, code=3 ,col="darkorange")
+  } )
+  points( 1:length(xlabs), rec_fora_med, type="b", col="magenta", lwd=1.5)
+  lapply(1:length(xlabs), function(i) {
+    y0 <- rec_fora_q1[i] ; y1 <- rec_fora_q3[i]
+    arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.05, angle=90, code=3 ,col="magenta")
+  } )
+  points( 1:length(xlabs), rec_gsva_med, type="b", col="darkgreen",lwd=1.5)
+  lapply(1:length(xlabs), function(i) {
+    y0 <- rec_gsva_q1[i] ; y1 <- rec_gsva_q3[i]
+    arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.05, angle=90, code=3 ,col="darkgreen")
+  } )
+  points( 1:length(xlabs)+0.1, rec_cfct_med, type="b", col="red",lwd=1.5)
+  lapply(1:length(xlabs), function(i) {
+    y0 <- rec_cfct_q1[i] ; y1 <- rec_cfct_q3[i]
+    arrows(x0=i+0.1,x1=i+0.1,y0=y0,y1=y1, length=0.05, angle=90, code=3 ,col="red")
+  } )
+  ## F1 index
+  plot( 1:length(xlabs)-0.1, f1_fgsea_med, type="b", col="darkorange", xlab=xlab, ylab="F1",ylim=ylim, xaxt='n', xlim=c(0.7,length(xlabs)+0.3), lwd=1.5)
+  axis(side = 1, at = 1:length(xlabs), labels = xlabs, tck = -0.01)
+  lapply(1:length(xlabs), function(i) {
+    y0 <- f1_fgsea_q1[i] ; y1 <- f1_fgsea_q3[i]
+    arrows(x0=i-0.1,x1=i-0.1,y0=y0,y1=y1, length=0.05, angle=90, code=3 ,col="darkorange")
+  } )
+  points( 1:length(xlabs), f1_fora_med, type="b", col="magenta", lwd=1.5)
+  lapply(1:length(xlabs), function(i) {
+    y0 <- f1_fora_q1[i]
+    y1 <- f1_fora_q3[i]
+    arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.05, angle=90, code=3 ,col="magenta")
+  } )
+  points( 1:length(xlabs), f1_gsva_med, type="b", col="darkgreen", lwd=1.5)
+  lapply(1:length(xlabs), function(i) {
+    y0 <- f1_gsva_q1[i] ; y1 <- f1_gsva_q3[i]
+    arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.05, angle=90, code=3 ,col="darkgreen")
+  } )
+  points( 1:length(xlabs)+0.1, f1_cfct_med, type="b", col="red", lwd=1.5)
+  lapply(1:length(xlabs), function(i) {
+    y0 <- f1_cfct_q1[i] ; y1 <- f1_cfct_q3[i]
+    arrows(x0=i+0.1,x1=i+0.1,y0=y0,y1=y1, length=0.05, angle=90, code=3 ,col="red")
+  } )
+}
+
+```
+
+## Charting the data for different tests
+
+```{r,charting2}
+
+par(mfrow=c(1,3))
+
+charting_function(data=count_analysis,xlab="no. counts (millions)",main="Effect of varying depth", ylim=c(0.5,1))
+
+charting_function(data=samplesize_analysis,xlab="no. replicate samples",main="Effect of sample size")
+
+charting_function(data=variation_analysis,xlab="introduced variation",main="Effect of increasing noise")
+
+par(mfrow=c(1,1))
+
+```
 
 ## Session
 
