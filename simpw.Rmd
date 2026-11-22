@@ -594,7 +594,7 @@ samplesize_analysis_tbl[,c(4,7,10,13)]
 
 ```{r,variation_effect}
 
-variation_analysis <- lapply( c(0,0.05,0.15,0.25,0.35,0.4,0.45), function(VARIANCE) {
+variation_analysis <- lapply( c(0.05,0.15,0.25,0.35,0.45,0.55,0.65), function(VARIANCE) {
   res <- mclapply(1:10, function(seed) {
     precrec(seed=seed, N_REPS=5, SUM_COUNT=20e6, VARIANCE=VARIANCE, FRAC_DE_PW=0.01, effect="medium", gsets=gs2)
   }, mc.cores=10)
@@ -663,7 +663,7 @@ charting_function <- function(data,xlab,main,ylim=c(0,1)) {
   f1_cfct_med <- unname(unlist(lapply(z, function(x) { summary(x[,13])[3] } )))
   ## PRECISION
   plot( 1:length(xlabs)-0.1, prec_fgsea_med, type="b", col="darkorange", xlab=xlab, ylab="precision",ylim=ylim, xaxt='n', xlim=c(0.7,length(xlabs)+0.3), lwd=1.5)
-  axis(side = 1, at = 1:length(xlabs), labels = xlabs, tck = -0.01)
+  axis(side = 1, at = 1:length(xlabs), labels = xlabs, tck = -0.01) ; mtext("Precision", cex=0.8)
   lapply(1:length(xlabs), function(i) {
     y0 <- prec_fgsea_q1[i] ; y1 <- prec_fgsea_q3[i]
     arrows(x0=i-0.1,x1=i-0.1,y0=y0,y1=y1, length=0.05, angle=90, code=3 ,col="darkorange")
@@ -685,7 +685,7 @@ charting_function <- function(data,xlab,main,ylim=c(0,1)) {
   } )
   ## RECALL
   plot( 1:length(xlabs)-0.1 , rec_fgsea_med, type="b", col="darkorange", xlab=xlab, ylab="recall",ylim=ylim, xaxt='n', xlim=c(0.7,length(xlabs)+0.3), lwd=1.5, main=main)
-  axis(side = 1, at = 1:length(xlabs), labels = xlabs, tck = -0.01)
+  axis(side = 1, at = 1:length(xlabs), labels = xlabs, tck = -0.01) ; mtext("Recall", cex=0.8)
   lapply(1:length(xlabs), function(i) {
     y0 <- rec_fgsea_q1[i];  y1 <- rec_fgsea_q3[i]
     arrows(x0=i-0.1,x1=i-0.1,y0=y0,y1=y1, length=0.05, angle=90, code=3 ,col="darkorange")
@@ -707,7 +707,7 @@ charting_function <- function(data,xlab,main,ylim=c(0,1)) {
   } )
   ## F1 index
   plot( 1:length(xlabs)-0.1, f1_fgsea_med, type="b", col="darkorange", xlab=xlab, ylab="F1",ylim=ylim, xaxt='n', xlim=c(0.7,length(xlabs)+0.3), lwd=1.5)
-  axis(side = 1, at = 1:length(xlabs), labels = xlabs, tck = -0.01)
+  axis(side = 1, at = 1:length(xlabs), labels = xlabs, tck = -0.01) ; mtext("F1 index",cex=0.8)
   lapply(1:length(xlabs), function(i) {
     y0 <- f1_fgsea_q1[i] ; y1 <- f1_fgsea_q3[i]
     arrows(x0=i-0.1,x1=i-0.1,y0=y0,y1=y1, length=0.05, angle=90, code=3 ,col="darkorange")
@@ -737,7 +737,7 @@ charting_function <- function(data,xlab,main,ylim=c(0,1)) {
 ```{r,charting2}
 
 par(mfrow=c(1,3))
-
+par(mar=c(4.1,3.1,4.1,0.1))
 charting_function(data=count_analysis,xlab="no. counts (millions)",main="Effect of varying depth", ylim=c(0.5,1))
 
 charting_function(data=samplesize_analysis,xlab="no. replicate samples",main="Effect of sample size")
@@ -745,6 +745,7 @@ charting_function(data=samplesize_analysis,xlab="no. replicate samples",main="Ef
 charting_function(data=variation_analysis,xlab="introduced variation",main="Effect of increasing noise")
 
 par(mfrow=c(1,1))
+par(mar=c(5.1,4.1,4.1,2.1))
 
 ```
 
