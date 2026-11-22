@@ -77,10 +77,19 @@ gmt_import <- function(gmtfile) {
 
 gs <- gmt_import("ReactomePathways_2026-10-23.gmt")
 
+# change names to make it easier to manage
 names(gs) <- sapply(1:length(gs), function(i) {
   set.seed(i*100)
   paste(sample(x=letters, size=20, replace=TRUE), collapse="",sep="")
 } )
+
+```
+
+Make completely random gene sets.
+
+All length = 100
+
+```{r,random_gs}
 
 randomGeneSets <- function(a){
   gsets <- sapply( rep(100,5000) , function(x) {
@@ -91,6 +100,28 @@ randomGeneSets <- function(a){
 }
 
 gs <- randomGeneSets(a)
+
+```
+
+Make random gene sets with length distribution taken from Reactome.
+
+
+```{r,random_gs2}
+
+gsr <- gmt_import("ReactomePathways_2026-10-23.gmt")
+
+randomGeneSets2 <- function(a,gsr) {
+  gs_lengths <- unname(unlist(lapply(gsr,length)))
+  gs_lengths <- gs_lengths[which(gs_lengths >= 10)]
+  new_gs_length <- sample(gs_lengths,5000,replace=TRUE)
+  new_gs <- lapply(new_gs_length, function(l) {
+    as.character( sample(rownames(a),l) )
+  } )
+  names(new_gs) <- stri_rand_strings(length(new_gs), 15, pattern = "[A-Za-z]")
+  return(new_gs)
+}
+
+gs2 <- randomGeneSets2(a=a,gsr=gsr)
 
 ```
 
@@ -114,6 +145,16 @@ gsets=gs
 
 simcounts <- function(counts, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.2, FRAC_DE_PW=0.1, effect="medium", gsets, seed=1) {
 
+#counts=a
+#N_REPS=5
+#SUM_COUNT=10e6
+#VARIANCE=0.45
+#FRAC_DE_PW=0.02
+#effect="medium"
+#gsets=gs
+#seed=2
+
+
   # Use edgeR::thincounts to create pseudoreplicate datasets
   df  = NULL
   for (k in paste0("data",1:(N_REPS*2)))  {
@@ -126,7 +167,11 @@ simcounts <- function(counts, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.2, FRAC_DE_PW
   ## Put some variance into the samples!
   if (VARIANCE > 0) {
     #create some random values centred around 1 with some% error
-    rand <- matrix(log2(rnorm(nrow(a)*N_REPS*2 , 2, VARIANCE)),ncol=N_REPS*2)
+    set.seed(seed*500)
+    # watch out for NA values when negative numbers are log transformed
+    noise <- rnorm(nrow(a)*N_REPS*2 , 2, VARIANCE)
+    noise[noise < 0] <- median(noise)
+    rand <- matrix(log2(noise),ncol=N_REPS*2)
     #incorporate the noise
     df <- round(df*rand)
     #set any negative counts to zero
@@ -218,8 +263,8 @@ simcounts <- function(counts, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.2, FRAC_DE_PW
   return(out)
 }
 
-testdata <- simcounts(counts=a, N_REPS=8, SUM_COUNT=40e6,
-  VARIANCE=0.2, FRAC_DE_PW=0.1, effect="medium", gsets=gs, seed=100)
+testdata <- simcounts(counts=a, N_REPS=4, SUM_COUNT=20e6,
+  VARIANCE=0.4, FRAC_DE_PW=0.005, effect="medium", gsets=gs, seed=300)
 
 str(testdata)
 
@@ -321,7 +366,7 @@ I think this demonstration shows he power o applying confects.
 ```{r, small_scale_demonstration}
 
 testdata <- simcounts(counts=a, N_REPS=5, SUM_COUNT=20e6,
-  VARIANCE=0.4, FRAC_DE_PW=0.03, effect="medium", gsets=gs, seed=4)
+  VARIANCE=0.35, FRAC_DE_PW=0.02, effect="low", gsets=gs, seed=1)
 
 str(testdata)
 
@@ -381,7 +426,7 @@ plot(euler(v1),quantities = TRUE)
 
 ```{r,largescale_fdr}
 
-precrec <- function(seed=42, N_REPS=8, SUM_COUNT=50e6, VARIANCE=0.2, FRAC_DE_PW=0.1, effect="medium", gsets=gs) {
+precrec <- function(seed=42, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.5, FRAC_DE_PW=0.03, effect="medium", gsets=gs) {
 
   testdata <- simcounts(counts=a, N_REPS=N_REPS, SUM_COUNT=SUM_COUNT,
     VARIANCE=VARIANCE, FRAC_DE_PW=FRAC_DE_PW, effect="medium", gsets=gsets, seed=seed)
@@ -453,25 +498,53 @@ precrec <- function(seed=42, N_REPS=8, SUM_COUNT=50e6, VARIANCE=0.2, FRAC_DE_PW=
 
 }
 
+```
+
+## Test the 2 different gene set libraries
+
+First simple, with 5000 sets wach containing 100 genes.
+
+Then with the size distribution from Reactome, which is more realistic.
+When the gene set size varies, then we can see how conventional methods are biased
+by size.
+
+
+```{r,largescale2}
+
 res <- mclapply(1:10, function(seed) {
-  precrec(seed=seed, N_REPS=5, SUM_COUNT=10e6, VARIANCE=0.35, FRAC_DE_PW=0.05, effect="medium", gsets=gs)
+  precrec(seed=seed, N_REPS=5, SUM_COUNT=10e6, VARIANCE=0.45, FRAC_DE_PW=0.01, effect="low", gsets=gs)
 }, mc.cores=10)
 
 resdf <- do.call(rbind,res)
 
 resdf %>%
-  kbl(caption="Repeatability with multiple seeds") %>%
+  kbl(caption="Repeatability with multiple seeds - gene sets 100 in size") %>%
   kable_paper("hover", full_width = F)
+
+colMeans(resdf)
+
+
+res2 <- mclapply(1:10, function(seed) {
+  precrec(seed=seed, N_REPS=5, SUM_COUNT=10e6, VARIANCE=0.45, FRAC_DE_PW=0.01, effect="low", gsets=gs2)
+}, mc.cores=10)
+
+resdf2 <- do.call(rbind,res2)
+
+resdf2 %>%
+  kbl(caption="Repeatability with multiple seeds - reactome sized sets") %>%
+  kable_paper("hover", full_width = F)
+
+colMeans(resdf2)
 
 ```
 
-## Effect of increasing the number of counts
+## Effect of varying the number of counts
 
 ```{r,count_effect}
 
 count_analysis <- lapply( seq(10,60,10), function(COUNTS) {
   res <- mclapply(1:10, function(seed) {
-    precrec(seed=seed, N_REPS=8, SUM_COUNT=COUNTS * 1e6, VARIANCE=0.2, FRAC_DE_PW=0.2, effect="medium", gsets=gs)
+    precrec(seed=seed, N_REPS=5, SUM_COUNT=COUNTS * 1e6, VARIANCE=0.45, FRAC_DE_PW=0.01, effect="medium", gsets=gs2)
   }, mc.cores=10)
   out <- do.call(rbind, res)
   return(out)
@@ -484,9 +557,11 @@ count_analysis_tbl %>%
   kbl(caption="Effect of the number of counts") %>%
   kable_paper("hover", full_width = F)
 
-count_analysis_tbl[,c(1,4,7,10)]
 count_analysis_tbl[,c(2,5,8,11)]
 count_analysis_tbl[,c(3,6,9,12)]
+count_analysis_tbl[,c(4,7,10,13)]
+
+colMeans(count_analysis_tbl)
 
 ```
 
@@ -496,7 +571,7 @@ count_analysis_tbl[,c(3,6,9,12)]
 
 samplesize_analysis <- lapply( seq(2,10,1), function(N_REPS) {
   res <- mclapply(1:10, function(seed) {
-    precrec(seed=seed, N_REPS=N_REPS, SUM_COUNT=30e6, VARIANCE=0.3, FRAC_DE_PW=0.2, effect="medium", gsets=gs)
+    precrec(seed=seed, N_REPS=N_REPS, SUM_COUNT=20e6, VARIANCE=0.45, FRAC_DE_PW=0.01, effect="medium", gsets=gs2)
   }, mc.cores=10)
   out <- do.call(rbind, res)
   return(out)
@@ -509,9 +584,9 @@ samplesize_analysis_tbl %>%
   kbl(caption="Effect of the number of replicates") %>%
   kable_paper("hover", full_width = F)
 
-samplesize_analysis_tbl[,c(1,4,7,10)]
 samplesize_analysis_tbl[,c(2,5,8,11)]
 samplesize_analysis_tbl[,c(3,6,9,12)]
+samplesize_analysis_tbl[,c(4,7,10,13)]
 
 ```
 
@@ -519,24 +594,24 @@ samplesize_analysis_tbl[,c(3,6,9,12)]
 
 ```{r,variation_effect}
 
-variation_analysis <- lapply( c(0,0.05,0.1,0.15,0.2,0.25,0.3,0.35), function(VARIANCE) {
+variation_analysis <- lapply( c(0,0.05,0.15,0.25,0.35,0.4,0.45), function(VARIANCE) {
   res <- mclapply(1:10, function(seed) {
-    precrec(seed=seed, N_REPS=5, SUM_COUNT=30e6, VARIANCE=VARIANCE, FRAC_DE_PW=0.2, effect="medium", gsets=gs)
+    precrec(seed=seed, N_REPS=5, SUM_COUNT=20e6, VARIANCE=VARIANCE, FRAC_DE_PW=0.01, effect="medium", gsets=gs2)
   }, mc.cores=10)
   out <- do.call(rbind, res)
   return(out)
 } )
 
-names(variation_analysis) <- c(0,0.05,0.1,0.15,0.2,0.25,0.3,0.35)
+names(variation_analysis) <- c(0,0.05,0.15,0.25,0.35,0.4,0.45)
 variation_analysis_tbl <- do.call(rbind,lapply(variation_analysis,colMeans))
 
-samplesize_analysis_tbl %>%
+variation_analysis_tbl %>%
   kbl(caption="Effect of the variance") %>%
   kable_paper("hover", full_width = F)
 
-variation_analysis_tbl[,c(1,4,7,10)]
 variation_analysis_tbl[,c(2,5,8,11)]
 variation_analysis_tbl[,c(3,6,9,12)]
+variation_analysis_tbl[,c(4,7,10,13)]
 
 ```
 
