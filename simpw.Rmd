@@ -147,7 +147,7 @@ FC=c("low","medium","high")
 
 #gsets=gs
 
-simcounts <- function(counts, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.2, FRAC_DE_PW=0.1, effect="medium", gsets, seed=1) {
+simcounts <- function(counts, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.35, FRAC_DE_PW=0.1, effect="medium", gsets, seed=1) {
 
   # Use edgeR::thincounts to create pseudoreplicate datasets
   df  = NULL
@@ -179,7 +179,7 @@ simcounts <- function(counts, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.2, FRAC_DE_PW
   gsets <- gsets[which(names(gsets) %in% names(gsets_sub))]
 
   NDIF=round(length(gsets)*FRAC_DE_PW)
-  if ( NDIF%%2==1 ) { print("odd") ; NDIF=NDIF-1 }
+  if ( NDIF%%2==1 ) { NDIF=NDIF-1 }
 
   if ( effect == "low" ) {
     FC_VALS <- seq(0.4,0.8,0.1)
@@ -427,7 +427,7 @@ plot(euler(v1),quantities = TRUE)
 
 ```{r,largescale_fdr}
 
-precrec <- function(seed=42, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.5, FRAC_DE_PW=0.02, effect="low") {
+precrec <- function(seed=42, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.35, FRAC_DE_PW=0.02, effect="low") {
 
   gs2 <- randomGeneSets2(a=a, gsr=gsr, nsets=5000, seed=seed)
 
@@ -512,7 +512,7 @@ by size.
 ```{r,largescale2}
 
 res2 <- mclapply(1:10, function(seed) {
-  precrec(seed=seed, N_REPS=5, SUM_COUNT=10e6, VARIANCE=0.45, FRAC_DE_PW=0.02, effect="low")
+  precrec(seed=seed, N_REPS=5, SUM_COUNT=10e6, VARIANCE=0.35, FRAC_DE_PW=0.02, effect="low")
 }, mc.cores=10)
 
 resdf2 <- do.call(rbind,res2)
@@ -532,7 +532,7 @@ summary(resdf2)
 
 count_analysis <- lapply( seq(10,60,10), function(COUNTS) {
   res <- mclapply(1:100, function(seed) {
-    precrec(seed=seed, N_REPS=5, SUM_COUNT=COUNTS * 1e6, VARIANCE=0.45, FRAC_DE_PW=0.02, effect="low")
+    precrec(seed=seed, N_REPS=5, SUM_COUNT=COUNTS * 1e6, VARIANCE=0.35, FRAC_DE_PW=0.02, effect="low")
   }, mc.cores=10)
   out <- do.call(rbind, res)
   return(out)
@@ -561,7 +561,7 @@ colMeans(count_analysis_tbl)
 
 samplesize_analysis <- lapply( seq(2,10,1), function(N_REPS) {
   res <- mclapply(1:100, function(seed) {
-    precrec(seed=seed, N_REPS=N_REPS, SUM_COUNT=20e6, VARIANCE=0.45, FRAC_DE_PW=0.02, effect="low")
+    precrec(seed=seed, N_REPS=N_REPS, SUM_COUNT=20e6, VARIANCE=0.35, FRAC_DE_PW=0.02, effect="low")
   }, mc.cores=10)
   out <- do.call(rbind, res)
   return(out)
