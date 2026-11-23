@@ -469,7 +469,7 @@ Lets run some analysis.
 
 ```{r,split_n_run}
 
-REPS=50
+REPS=100
 TESTRANGE <- c(2,3,4,5,6,8,10,12,16,22,30)
 
 res <- lapply( TESTRANGE , function(n) {
@@ -512,6 +512,28 @@ o_inco <- lapply(res, function(x) { x$o[,"fp_n"] } )
 names(o_inco) <- TESTRANGE
 o_ppi <- lapply(res, function(x) { x$o[,"ppi"] } )
 names(o_ppi) <- TESTRANGE
+
+```
+
+Output the numbers.
+
+```{r,outputnumbers}
+
+lapply(g_cons,summary)
+lapply(g_inco,summary)
+lapply(g_ppi,summary)
+
+lapply(gt_cons,summary)
+lapply(gt_inco,summary)
+lapply(gt_ppi,summary)
+
+lapply(f_cons,summary)
+lapply(f_inco,summary)
+lapply(f_ppi,summary)
+
+lapply(o_cons,summary)
+lapply(o_inco,summary)
+lapply(o_ppi,summary)
 
 ```
 
