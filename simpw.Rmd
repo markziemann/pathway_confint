@@ -360,8 +360,6 @@ I think this demonstration shows the power of applying confects.
 
 ```{r, small_scale_demonstration1}
 
-blah()
-
 seed=42
 
 gs2 <- randomGeneSets2(a=a, gsr=gsr, nsets=5000, seed=seed)
@@ -743,18 +741,16 @@ charting_function <- function(data,xlab,main,ylim=c(0,1)) {
 
 par(mfrow=c(1,3))
 par(mar=c(4.1,3.1,4.1,0.1))
-charting_function(data=count_analysis,xlab="no. counts (millions)",main="Effect of varying depth", ylim=c(0.5,1))
+charting_function(data=count_analysis,xlab="no. counts (millions)",main="Effect of varying depth")
 charting_function(data=samplesize_analysis,xlab="no. replicate samples",main="Effect of sample size")
 charting_function(data=variation_analysis,xlab="introduced variation",main="Effect of increasing noise")
 par(mfrow=c(1,1))
 par(mar=c(5.1,4.1,4.1,2.1))
 
 pdf("simpw.pdf",height=5,width=7)
-
 par(mfrow=c(1,3))
 par(mar=c(4.1,2.1,4.1,0.5))
-
-charting_function(data=count_analysis,xlab="no. counts (millions)",main="Effect of varying depth", ylim=c(0.5,1))
+charting_function(data=count_analysis,xlab="no. counts (millions)",main="Effect of varying depth")
 charting_function(data=samplesize_analysis,xlab="no. replicate samples",main="Effect of sample size")
 charting_function(data=variation_analysis,xlab="introduced variation",main="Effect of increasing noise")
 dev.off()
