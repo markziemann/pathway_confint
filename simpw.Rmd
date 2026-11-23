@@ -105,23 +105,27 @@ gs <- randomGeneSets(a)
 
 Make random gene sets with length distribution taken from Reactome.
 
-
 ```{r,random_gs2}
 
 gsr <- gmt_import("ReactomePathways_2026-10-23.gmt")
 
-randomGeneSets2 <- function(a,gsr) {
+randomGeneSets2 <- function(a,gsr,nsets=5000,seed) {
   gs_lengths <- unname(unlist(lapply(gsr,length)))
   gs_lengths <- gs_lengths[which(gs_lengths >= 10)]
-  new_gs_length <- sample(gs_lengths,5000,replace=TRUE)
-  new_gs <- lapply(new_gs_length, function(l) {
+  set.seed(seed) ; myseeds <- sample(1:1e6,size=nsets,replace=FALSE)
+  new_gs_length <- sample(gs_lengths,nsets,replace=TRUE)
+  new_gs <- lapply(1:length(new_gs_length), function(i) {
+    l <- new_gs_length[i]
+    myseed <- myseeds[i]
+    set.seed(myseed)
     as.character( sample(rownames(a),l) )
   } )
+  set.seed(seed)
   names(new_gs) <- stri_rand_strings(length(new_gs), 15, pattern = "[A-Za-z]")
   return(new_gs)
 }
 
-gs2 <- randomGeneSets2(a=a,gsr=gsr)
+gs2 <- randomGeneSets2(a=a, gsr=gsr, nsets=5000, seed=42)
 
 ```
 
@@ -141,19 +145,9 @@ high=seq(0.8,1.6,0.1)
 
 FC=c("low","medium","high")
 
-gsets=gs
+#gsets=gs
 
 simcounts <- function(counts, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.2, FRAC_DE_PW=0.1, effect="medium", gsets, seed=1) {
-
-#counts=a
-#N_REPS=5
-#SUM_COUNT=10e6
-#VARIANCE=0.45
-#FRAC_DE_PW=0.02
-#effect="medium"
-#gsets=gs
-#seed=2
-
 
   # Use edgeR::thincounts to create pseudoreplicate datasets
   df  = NULL
@@ -282,9 +276,6 @@ Run fgsea and see if the NES prioritisation works.
 
 Run a basic test to show GT pathways are actually altered with FDR selection.
 
-Yes it confirms the ability of FGSEA to identify these pathways but OMG there are
-a lot of false positives.
-
 ```{r,benchmark_fgsea}
 
 # the data object is a list that contains 1 count matrix and 1 DF of PW fold changes
@@ -308,17 +299,21 @@ run_fgsea <- function(data,  gsets, seed=1) {
 run_fora <- function(data,  gsets) {
   de <- data[[3]]
   # select genes for ORA
-  up <- unique(rownames(head(subset(de, logFC>0 & adj.P.Val<0.05),1000)))
-  dn <- unique(rownames(head(subset(de, logFC<0 & adj.P.Val<0.05),1000)))
+#  up <- unique(rownames(head(subset(de, logFC>0 & adj.P.Val<0.05),1000)))
+#  dn <- unique(rownames(head(subset(de, logFC<0 & adj.P.Val<0.05),1000)))
+  up <- unique(rownames(head(subset(de, logFC>0 ),1000)))
+  dn <- unique(rownames(head(subset(de, logFC<0 ),1000)))
   bg <- unique(rownames(de))
-  ores_up <- fora(pathways=gs,genes=up,universe=bg,minSize=5)
-  ores_dn <- fora(pathways=gs,genes=dn,universe=bg,minSize=5)
+  ores_up <- fora(pathways=gsets,genes=up,universe=bg,minSize=5)
+  ores_dn <- fora(pathways=gsets,genes=dn,universe=bg,minSize=5)
   # flip enrichment sign for down genes
   ores_dn$foldEnrichment <- ores_dn$foldEnrichment * -1
   # combine separate tests for up and down into single output
   o_comb <- lapply(ores_up$pathway, function(x) {
     upES <- subset(ores_up,pathway==x)[,"foldEnrichment"]
     dnES <-  subset(ores_dn,pathway==x)[,"foldEnrichment"]
+    if ( is.na(upES) ) { upES <- 0  }
+    if ( is.na(dnES) ) { dnES <- 0  }
     if ( abs(upES) >= abs(dnES) ) {
       subset(ores_up,pathway==x)
     } else {
@@ -361,12 +356,16 @@ run_gsva <- function(data,  gsets) {
 
 ## Small-scale comparison of FCS, ORA, GSVA and confects
 
-I think this demonstration shows he power o applying confects.
+I think this demonstration shows the power of applying confects.
 
-```{r, small_scale_demonstration}
+```{r, small_scale_demonstration1}
+
+seed=42
+
+gs2 <- randomGeneSets2(a=a, gsr=gsr, nsets=5000, seed=seed)
 
 testdata <- simcounts(counts=a, N_REPS=5, SUM_COUNT=20e6,
-  VARIANCE=0.35, FRAC_DE_PW=0.02, effect="low", gsets=gs, seed=1)
+  VARIANCE=0.35, FRAC_DE_PW=0.01, effect="medium", gsets=gs2, seed=seed)
 
 str(testdata)
 
@@ -376,7 +375,7 @@ n_dge <- nrow(subset(dge,adj.P.Val<0.05))
 
 n_dge
 
-test_fgsea <- run_fgsea(data=testdata, gsets=gs, seed=1)
+test_fgsea <- run_fgsea(data=testdata, gsets=gs2, seed=seed)
 head(test_fgsea)
 
 test_fgsea_up <- subset(test_fgsea, padj < 0.05 & ES > 0 )$pathway
@@ -389,7 +388,9 @@ v1 <- list("FCS up"=test_fgsea_up, "FCS dn"=test_fgsea_dn, "GT up"=gt_up, "GT_dn
 
 plot(euler(v1),quantities = TRUE)
 
-test_fora <- run_fora(data=testdata,  gsets=gs)
+test_fora <- run_fora(data=testdata,  gsets=gs2)
+
+head(test_fora)
 
 test_fora_up <- subset(test_fora, padj < 0.05 & foldEnrichment > 0 )$pathway
 test_fora_dn <- subset(test_fora, padj < 0.05 & foldEnrichment < 0 )$pathway
@@ -401,7 +402,7 @@ v1 <- list("ORA up"=test_fora_up, "ORA dn"=test_fora_dn, "GT up"=gt_up, "GT_dn"=
 
 plot(euler(v1),quantities = TRUE)
 
-test_gsva <- run_gsva(data=testdata,  gsets=gs)
+test_gsva <- run_gsva(data=testdata,  gsets=gs2)
 
 test_gsva_up <- subset(test_gsva, adj.P.Val < 0.05 & logFC > 0 )$Row.names
 test_gsva_dn <- subset(test_gsva, adj.P.Val < 0.05 & logFC < 0 )$Row.names
@@ -426,10 +427,12 @@ plot(euler(v1),quantities = TRUE)
 
 ```{r,largescale_fdr}
 
-precrec <- function(seed=42, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.5, FRAC_DE_PW=0.03, effect="medium", gsets=gs) {
+precrec <- function(seed=42, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.5, FRAC_DE_PW=0.03, effect="medium") {
+
+  gs2 <- randomGeneSets2(a=a, gsr=gsr, nsets=5000, seed=seed)
 
   testdata <- simcounts(counts=a, N_REPS=N_REPS, SUM_COUNT=SUM_COUNT,
-    VARIANCE=VARIANCE, FRAC_DE_PW=FRAC_DE_PW, effect="medium", gsets=gsets, seed=seed)
+    VARIANCE=VARIANCE, FRAC_DE_PW=FRAC_DE_PW, effect="medium", gsets=gs2, seed=seed)
 
   n_dge <- nrow(subset(testdata[[3]],adj.P.Val<0.05))
 
@@ -439,28 +442,28 @@ precrec <- function(seed=42, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.5, FRAC_DE_PW=
   gt_dn <- paste(gt_dn,"dn")
   gt_de <- c(gt_up,gt_dn)
 
-  test_fgsea <- run_fgsea(data=testdata, gsets=gsets, seed=seed)
+  test_fgsea <- run_fgsea(data=testdata, gsets=gs2, seed=seed)
   test_fgsea_up <- subset(test_fgsea, padj < 0.05 & ES > 0 )$pathway
   test_fgsea_dn <- subset(test_fgsea, padj < 0.05 & ES < 0 )$pathway
   test_fgsea_up <- paste(test_fgsea_up,"up")
   test_fgsea_dn <- paste(test_fgsea_dn,"dn")
   test_fgsea_de <- c(test_fgsea_up,test_fgsea_dn)
 
-  test_fora <- run_fora(data=testdata,  gsets=gsets)
+  test_fora <- run_fora(data=testdata,  gsets=gs2)
   test_fora_up <- subset(test_fora, padj < 0.05 & foldEnrichment > 0 )$pathway
   test_fora_dn <- subset(test_fora, padj < 0.05 & foldEnrichment < 0 )$pathway
   test_fora_up <- paste(test_fora_up,"up")
   test_fora_dn <- paste(test_fora_dn,"dn")
   test_fora_de <- c(test_fora_up,test_fora_dn)
 
-  test_gsva <- run_gsva(data=testdata,  gsets=gsets)
+  test_gsva <- run_gsva(data=testdata,  gsets=gs2)
   test_gsva_up <- subset(test_gsva, adj.P.Val < 0.05 & logFC > 0 )$Row.names
   test_gsva_dn <- subset(test_gsva, adj.P.Val < 0.05 & logFC < 0 )$Row.names
   test_gsva_up <- paste(test_gsva_up,"up")
   test_gsva_dn <- paste(test_gsva_dn,"dn")
   test_gsva_de <- c(test_gsva_up,test_gsva_dn)
 
-  test_gsva <- run_gsva(data=testdata,  gsets=gsets)
+  test_gsva <- run_gsva(data=testdata,  gsets=gs2)
   test_cfct_up <- subset(test_gsva, confect > 0.2 )$Row.names
   test_cfct_dn <- subset(test_gsva, confect < -0.2 )$Row.names
 
@@ -512,7 +515,7 @@ by size.
 ```{r,largescale2}
 
 res <- mclapply(1:10, function(seed) {
-  precrec(seed=seed, N_REPS=5, SUM_COUNT=10e6, VARIANCE=0.45, FRAC_DE_PW=0.01, effect="low", gsets=gs)
+  precrec(seed=seed, N_REPS=5, SUM_COUNT=10e6, VARIANCE=0.45, FRAC_DE_PW=0.01, effect="low")
 }, mc.cores=10)
 
 resdf <- do.call(rbind,res)
@@ -525,7 +528,7 @@ colMeans(resdf)
 
 
 res2 <- mclapply(1:10, function(seed) {
-  precrec(seed=seed, N_REPS=5, SUM_COUNT=10e6, VARIANCE=0.45, FRAC_DE_PW=0.01, effect="low", gsets=gs2)
+  precrec(seed=seed, N_REPS=5, SUM_COUNT=10e6, VARIANCE=0.45, FRAC_DE_PW=0.01, effect="low")
 }, mc.cores=10)
 
 resdf2 <- do.call(rbind,res2)
@@ -544,7 +547,7 @@ colMeans(resdf2)
 
 count_analysis <- lapply( seq(10,60,10), function(COUNTS) {
   res <- mclapply(1:10, function(seed) {
-    precrec(seed=seed, N_REPS=5, SUM_COUNT=COUNTS * 1e6, VARIANCE=0.45, FRAC_DE_PW=0.01, effect="medium", gsets=gs2)
+    precrec(seed=seed, N_REPS=5, SUM_COUNT=COUNTS * 1e6, VARIANCE=0.45, FRAC_DE_PW=0.01, effect="medium")
   }, mc.cores=10)
   out <- do.call(rbind, res)
   return(out)
@@ -571,7 +574,7 @@ colMeans(count_analysis_tbl)
 
 samplesize_analysis <- lapply( seq(2,10,1), function(N_REPS) {
   res <- mclapply(1:10, function(seed) {
-    precrec(seed=seed, N_REPS=N_REPS, SUM_COUNT=20e6, VARIANCE=0.45, FRAC_DE_PW=0.01, effect="medium", gsets=gs2)
+    precrec(seed=seed, N_REPS=N_REPS, SUM_COUNT=20e6, VARIANCE=0.45, FRAC_DE_PW=0.01, effect="medium")
   }, mc.cores=10)
   out <- do.call(rbind, res)
   return(out)
@@ -596,13 +599,13 @@ samplesize_analysis_tbl[,c(4,7,10,13)]
 
 variation_analysis <- lapply( c(0.05,0.15,0.25,0.35,0.45,0.55,0.65), function(VARIANCE) {
   res <- mclapply(1:10, function(seed) {
-    precrec(seed=seed, N_REPS=5, SUM_COUNT=20e6, VARIANCE=VARIANCE, FRAC_DE_PW=0.01, effect="medium", gsets=gs2)
+    precrec(seed=seed, N_REPS=5, SUM_COUNT=20e6, VARIANCE=VARIANCE, FRAC_DE_PW=0.01, effect="medium")
   }, mc.cores=10)
   out <- do.call(rbind, res)
   return(out)
 } )
 
-names(variation_analysis) <- c(0,0.05,0.15,0.25,0.35,0.4,0.45)
+names(variation_analysis) <- c(0.05,0.15,0.25,0.35,0.45,0.55,0.65)
 variation_analysis_tbl <- do.call(rbind,lapply(variation_analysis,colMeans))
 
 variation_analysis_tbl %>%
@@ -662,7 +665,7 @@ charting_function <- function(data,xlab,main,ylim=c(0,1)) {
   f1_cfct_q3 <- unname(unlist(lapply(z, function(x) { summary(x[,13])[5] } )))
   f1_cfct_med <- unname(unlist(lapply(z, function(x) { summary(x[,13])[3] } )))
   ## PRECISION
-  plot( 1:length(xlabs)-0.1, prec_fgsea_med, type="b", col="darkorange", xlab=xlab, ylab="precision",ylim=ylim, xaxt='n', xlim=c(0.7,length(xlabs)+0.3), lwd=1.5)
+  plot( 1:length(xlabs)-0.1, prec_fgsea_med, type="b", col="darkorange", xlab="", ylab="precision",ylim=ylim, xaxt='n', xlim=c(0.7,length(xlabs)+0.3), lwd=1.5)
   axis(side = 1, at = 1:length(xlabs), labels = xlabs, tck = -0.01) ; mtext("Precision", cex=0.8)
   lapply(1:length(xlabs), function(i) {
     y0 <- prec_fgsea_q1[i] ; y1 <- prec_fgsea_q3[i]
@@ -706,7 +709,7 @@ charting_function <- function(data,xlab,main,ylim=c(0,1)) {
     arrows(x0=i+0.1,x1=i+0.1,y0=y0,y1=y1, length=0.05, angle=90, code=3 ,col="red")
   } )
   ## F1 index
-  plot( 1:length(xlabs)-0.1, f1_fgsea_med, type="b", col="darkorange", xlab=xlab, ylab="F1",ylim=ylim, xaxt='n', xlim=c(0.7,length(xlabs)+0.3), lwd=1.5)
+  plot( 1:length(xlabs)-0.1, f1_fgsea_med, type="b", col="darkorange", xlab="", ylab="F1",ylim=ylim, xaxt='n', xlim=c(0.7,length(xlabs)+0.3), lwd=1.5)
   axis(side = 1, at = 1:length(xlabs), labels = xlabs, tck = -0.01) ; mtext("F1 index",cex=0.8)
   lapply(1:length(xlabs), function(i) {
     y0 <- f1_fgsea_q1[i] ; y1 <- f1_fgsea_q3[i]
