@@ -360,12 +360,14 @@ I think this demonstration shows the power of applying confects.
 
 ```{r, small_scale_demonstration1}
 
+blah()
+
 seed=42
 
 gs2 <- randomGeneSets2(a=a, gsr=gsr, nsets=5000, seed=seed)
 
 testdata <- simcounts(counts=a, N_REPS=5, SUM_COUNT=20e6,
-  VARIANCE=0.35, FRAC_DE_PW=0.01, effect="medium", gsets=gs2, seed=seed)
+  VARIANCE=0.35, FRAC_DE_PW=0.02, effect="low", gsets=gs2, seed=seed)
 
 str(testdata)
 
@@ -427,7 +429,7 @@ plot(euler(v1),quantities = TRUE)
 
 ```{r,largescale_fdr}
 
-precrec <- function(seed=42, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.5, FRAC_DE_PW=0.03, effect="medium") {
+precrec <- function(seed=42, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.5, FRAC_DE_PW=0.02, effect="low") {
 
   gs2 <- randomGeneSets2(a=a, gsr=gsr, nsets=5000, seed=seed)
 
@@ -515,7 +517,7 @@ by size.
 ```{r,largescale2}
 
 res <- mclapply(1:10, function(seed) {
-  precrec(seed=seed, N_REPS=5, SUM_COUNT=10e6, VARIANCE=0.45, FRAC_DE_PW=0.01, effect="low")
+  precrec(seed=seed, N_REPS=5, SUM_COUNT=10e6, VARIANCE=0.45, FRAC_DE_PW=0.02, effect="low")
 }, mc.cores=10)
 
 resdf <- do.call(rbind,res)
@@ -528,7 +530,7 @@ colMeans(resdf)
 
 
 res2 <- mclapply(1:10, function(seed) {
-  precrec(seed=seed, N_REPS=5, SUM_COUNT=10e6, VARIANCE=0.45, FRAC_DE_PW=0.01, effect="low")
+  precrec(seed=seed, N_REPS=5, SUM_COUNT=10e6, VARIANCE=0.45, FRAC_DE_PW=0.02, effect="low")
 }, mc.cores=10)
 
 resdf2 <- do.call(rbind,res2)
@@ -547,7 +549,7 @@ colMeans(resdf2)
 
 count_analysis <- lapply( seq(10,60,10), function(COUNTS) {
   res <- mclapply(1:10, function(seed) {
-    precrec(seed=seed, N_REPS=5, SUM_COUNT=COUNTS * 1e6, VARIANCE=0.45, FRAC_DE_PW=0.01, effect="medium")
+    precrec(seed=seed, N_REPS=5, SUM_COUNT=COUNTS * 1e6, VARIANCE=0.45, FRAC_DE_PW=0.02, effect="low")
   }, mc.cores=10)
   out <- do.call(rbind, res)
   return(out)
@@ -574,7 +576,7 @@ colMeans(count_analysis_tbl)
 
 samplesize_analysis <- lapply( seq(2,10,1), function(N_REPS) {
   res <- mclapply(1:10, function(seed) {
-    precrec(seed=seed, N_REPS=N_REPS, SUM_COUNT=20e6, VARIANCE=0.45, FRAC_DE_PW=0.01, effect="medium")
+    precrec(seed=seed, N_REPS=N_REPS, SUM_COUNT=20e6, VARIANCE=0.45, FRAC_DE_PW=0.02, effect="low")
   }, mc.cores=10)
   out <- do.call(rbind, res)
   return(out)
@@ -599,7 +601,7 @@ samplesize_analysis_tbl[,c(4,7,10,13)]
 
 variation_analysis <- lapply( c(0.05,0.15,0.25,0.35,0.45,0.55,0.65), function(VARIANCE) {
   res <- mclapply(1:10, function(seed) {
-    precrec(seed=seed, N_REPS=5, SUM_COUNT=20e6, VARIANCE=VARIANCE, FRAC_DE_PW=0.01, effect="medium")
+    precrec(seed=seed, N_REPS=5, SUM_COUNT=20e6, VARIANCE=VARIANCE, FRAC_DE_PW=0.02, effect="low")
   }, mc.cores=10)
   out <- do.call(rbind, res)
   return(out)
