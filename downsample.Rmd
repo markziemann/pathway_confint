@@ -17,6 +17,7 @@ Source: https://github.com/markziemann/pathway_confint
 
 ```{r,libs}
 
+suppressPackageStartupMessages({
   library("GSVA")
   library("edgeR")
   library("kableExtra")
@@ -28,7 +29,7 @@ Source: https://github.com/markziemann/pathway_confint
   library("eulerr")
   library("parallel")
   library("BiocParallel")
-
+})
   register(MulticoreParam(workers = 1, progressbar = FALSE))
 
 
@@ -177,10 +178,13 @@ f_dn <- subset(fres,padj < 0.05 & NES < 0)$pathway
 g_up <- subset(gres,adj.P.Val < 0.05 & logFC > 0 )$Row.names
 g_dn <- subset(gres,adj.P.Val < 0.05 & logFC < 0 )$Row.names
 
-v1 <- list("ORA up"=o_up, "FCS up"=f_up, "GSVA up"=g_up)
+gt_up <- subset(gres,confect > 0.2)$Row.names
+gt_dn <- subset(gres,confect < -0.2)$Row.names
+
+v1 <- list("ORA up"=o_up, "FCS up"=f_up, "GSVA up"=g_up, "GSVA-TC up"=gt_up)
 plot(euler(v1),quantities = TRUE)
 
-v1 <- list("ORA dn"=o_dn, "FCS dn"=f_dn, "GSVA dn"=g_dn)
+v1 <- list("ORA dn"=o_dn, "FCS dn"=f_dn, "GSVA dn"=g_dn, "GSVA-TC dn"=gt_dn)
 plot(euler(v1),quantities = TRUE)
 
 ```
@@ -189,15 +193,10 @@ plot(euler(v1),quantities = TRUE)
 
 ```{r,sample_sizes}
 
-TESTRANGE <- c(2,3,4,5,6,8,10,12,16,22,30)
+TESTRANGE <- c(5,8,12,18)
 NREPS=10
 
 myres <- lapply( TESTRANGE, function(n) {
-
-  gg <- unlist(mclapply(1:NREPS, function(i) {
-    gr <- gsva_tc(NPAT=n,i,gs)
-    nrow(subset(gr,adj.P.Val<0.05))
-  }, mc.cores=10))
 
   ff <- unlist(mclapply(1:NREPS, function(i) {
     fr <- run_fgsea(NPAT=n,i,gs)
@@ -209,18 +208,31 @@ myres <- lapply( TESTRANGE, function(n) {
     nrow(subset(or,padj<0.05))
   }, mc.cores=10))
 
-  return(list("gg"=gg,"ff"=ff,"oo"=oo))
+  gg <- mclapply(1:NREPS, function(i) {
+    gr <- gsva_tc(NPAT=n,i,gs)
+    nsig <- nrow(subset(gr,adj.P.Val<0.05))
+    ntc <- nrow(subset(gr,abs(confect)>0.2))
+    out <- c("nsig"=nsig,"ntc"=ntc)
+    return(out)
+  }, mc.cores=10)
+
+  gt <- sapply(gg,"[[",2)
+  gg <- sapply(gg,"[[",1)
+
+  out <- list("ff"=ff, "oo"=oo, "gg"=gg, "gt"=gt )
+  return(out)
 })
 
-ggres <- lapply(myres,function(x) { x[[1]] } )
-ffres <- lapply(myres,function(x) { x[[2]] } )
-oores <- lapply(myres,function(x) { x[[3]] } )
+ffres <- lapply(myres,function(x) { x[[1]] } )
+oores <- lapply(myres,function(x) { x[[2]] } )
+ggres <- lapply(myres,function(x) { x[[3]] } )
+gtres <- lapply(myres,function(x) { x[[4]] } )
 
 MYMAX <- max(c(sapply(oores,function(x) { summary(x)[5] } ),
   sapply(ffres,function(x) { summary(x)[5] } ),
   sapply(ggres,function(x) { summary(x)[5] } ) ) )
 
-plot( sapply(ggres,mean), type="b" , col="darkgreen", xlab="n reps",ylab="no significant pathways",ylim=c(0,MYMAX), xaxt='n')
+plot( 1:length(ggres), sapply(ggres,median), type="b" , col="darkgreen", xlab="n reps",ylab="no significant pathways",ylim=c(0,MYMAX), xaxt='n')
 axis(side = 1, at = 1:length(TESTRANGE), labels = TESTRANGE, tck = -0.01)
 lapply(1:length(ggres), function(i) {
   y0 <- summary(ggres[[i]])[2]
@@ -228,23 +240,30 @@ lapply(1:length(ggres), function(i) {
   arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkgreen")
 } )
 
-points( 1:length(ffres) +0.1, sapply(ffres,mean), type="b" , col="darkorange")
+points( 1:length(ffres) +0.1, sapply(ffres,median), type="b" , col="darkorange")
 lapply(1:length(ffres), function(i) {
   y0 <- summary(ffres[[i]])[2]
   y1 <- summary(ffres[[i]])[5]
   arrows(x0=i+0.1,x1=i+0.1,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkorange")
 } )
 
-points( 1:length(oores) -0.1, sapply(oores,mean), type="b" , col="magenta")
+points( 1:length(oores) -0.1, sapply(oores,median), type="b" , col="magenta")
 lapply(1:length(oores), function(i) {
   y0 <- summary(oores[[i]])[2]
   y1 <- summary(oores[[i]])[5]
   arrows(x0=i-0.1,x1=i-0.1,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="magenta")
 } )
 
+points( 1:length(gtres) , sapply(gtres,median), type="b" , col="red")
+lapply(1:length(gtres), function(i) {
+  y0 <- summary(gtres[[i]])[2]
+  y1 <- summary(gtres[[i]])[5]
+  arrows(x0=i-0.1,x1=i-0.1,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="red")
+} )
+
 legend(x = "topleft", box.lwd = 2 , lwd=1, lty=1,
-       legend=c("GSVA", "FCS", "ORA"),
-       col = c("darkgreen","darkorange","magenta"))
+       legend=c("GSVA", "GSVA TC", "FCS", "ORA"),
+       col = c("darkgreen","red", "darkorange","magenta"))
 
 ```
 
@@ -300,6 +319,54 @@ gtest <- mclapply(1:10,function(i) { gsva2(NPAT=5,i=i,gs) } , mc.cores=10)
 gdf <- do.call(rbind,gtest)
 colMeans(gdf)
 
+## GSVA with topconfect
+gsva_tc <- function(NPAT=5,i,gs) {
+
+  # full 37
+  m1up <- subset(gres,confect > 0.2 )$Row.names
+  m1up <- paste(m1up,"up")
+  m1dn <- subset(gres,confect < -0.2 )$Row.names
+  m1dn <- paste(m1up,"dn")
+  m1updn <- c(m1up,m1dn)
+
+  set.seed(i*100)
+  PATS <- sample( ss$patient, NPAT, replace=FALSE )
+  ssd2 <- ss[which(ss$patient %in% PATS),]
+  ssd2$patient <- as.factor(as.character(ssd2$patient))
+  xd2 <- x[,colnames(x) %in% rownames(ssd2)]
+  xdf2 <- xd2[which(rowMeans(xd2) > 5),]
+
+  y2 <- DGEList(counts = xdf2)
+  y2 <- normLibSizes(y2) #edgeR
+  expr2 <- cpm(y2, log = TRUE, prior.count = 2)
+  param2 <- gsvaParam( expr = expr2, geneSets = gs, kcdf = "Gaussian", minSize = 5, maxSize = 5000)
+  scores2 <- gsva(param2)
+  design2 <- model.matrix(~ patient + tumor, data = ssd2)
+  fit2 <- limma::lmFit(scores2, design2)
+  fit2 <- limma::eBayes(fit2)
+  results2 <- limma::topTable( fit2, coef = "tumorTRUE", number = Inf, adjust.method = "fdr")
+  confects2 <- limma_confects( fit2, coef = "tumorTRUE", fdr=0.05)
+  m2 <- merge(results2,confects2$table,by.x=0,by.y="name")
+  m2up <- subset(m2, confect > 0.2 )$Row.names
+  m2up <- paste(m2up,"up")
+  m2dn <- subset(m2, confect < -0.2 )$Row.names
+  m2dn <- paste(m2up,"dn")
+  m2updn <- c(m2up,m2dn)
+
+  m1_n <- length(m1updn)
+  m2_n <- length(m2updn)
+  ix_n <- length( intersect( m1updn , m2updn ))
+  fp_n <- length(setdiff(m2updn,m1updn))
+  ppi <- fp_n / m2_n #proportion inconsistent
+  out <- c("m1_n"=m1_n, "m2_n"=m2_n, "ix_n"=ix_n, "fp_n"=fp_n, "ppi"=ppi)
+  return(out)
+}
+
+gtctest <- mclapply(1:10,function(i) { gsva_tc(NPAT=5,i=i,gs) } , mc.cores=10)
+gtcdf <- do.call(rbind,gtctest)
+colMeans(gtcdf)
+
+## FGSEA
 fgsea2 <- function(NPAT=5,i,gs) {
 
   f1up <- subset(fres,padj < 0.05 & ES > 0 )$pathway
@@ -347,6 +414,7 @@ ftest <- mclapply(1:10,function(i) { fgsea2(NPAT=10,i=i,gs) } , mc.cores=10)
 fdf <- do.call(rbind,ftest)
 colMeans(fdf)
 
+## FORA
 ora2 <- function(NPAT=5,i,gs) {
 
   o1up <- subset(ores,padj<0.05)$pathway
@@ -401,17 +469,19 @@ Lets run some analysis.
 
 ```{r,split_n_run}
 
-REPS=50
+REPS=10
 TESTRANGE <- c(2,3,4,5,6,8,10,12,16,22,30)
 
 res <- lapply( TESTRANGE , function(n) {
   gres <- mclapply(1:REPS,function(i) { gsva2(NPAT=n, i=i, gs) } , mc.cores=10)
   gdf <- do.call(rbind,gres)
+  gtres <- mclapply(1:REPS,function(i) { gsva_tc(NPAT=n, i=i, gs) } , mc.cores=10)
+  gtdf <- do.call(rbind,gtres)
   fres <- mclapply(1:REPS,function(i) { fgsea2(NPAT=n, i=i, gs) } , mc.cores=10)
   fdf <- do.call(rbind,fres)
   ores <- mclapply(1:REPS,function(i) { ora2(NPAT=n, i=i, gs) } , mc.cores=10)
   odf <- do.call(rbind,ores)
-  res <- list("g"=gdf,"f"=fdf,"o"=odf)
+  res <- list("g"=gdf,"gt"=gtdf,"f"=fdf,"o"=odf)
   return(res)
 })
 
@@ -421,6 +491,13 @@ g_inco <- lapply(res, function(x) { x$g[,"fp_n"] } )
 names(g_inco) <- TESTRANGE
 g_ppi <- lapply(res, function(x) { x$g[,"ppi"] } )
 names(g_ppi) <- TESTRANGE
+
+gt_cons <- lapply(res, function(x) { x$gt[,"ix_n"] } )
+names(gt_cons) <- TESTRANGE
+gt_inco <- lapply(res, function(x) { x$gt[,"fp_n"] } )
+names(gt_inco) <- TESTRANGE
+gt_ppi <- lapply(res, function(x) { x$gt[,"ppi"] } )
+names(gt_ppi) <- TESTRANGE
 
 f_cons <- lapply(res, function(x) { x$f[,"ix_n"] } )
 names(f_cons) <- TESTRANGE
