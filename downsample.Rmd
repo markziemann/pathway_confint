@@ -469,7 +469,7 @@ Lets run some analysis.
 
 ```{r,split_n_run}
 
-REPS=10
+REPS=50
 TESTRANGE <- c(2,3,4,5,6,8,10,12,16,22,30)
 
 res <- lapply( TESTRANGE , function(n) {
@@ -611,7 +611,7 @@ par(mfrow=c(2,1))
 par(mar=c(3.1,4.1,1.1,0.1))
 
 MYMAX <- max(sapply(g_cons,max))
-plot( 1:length(TESTRANGE), sapply(g_cons,mean), type="b", col="darkgreen",ylab="n consistent", ylim=c(0,MYMAX),  xaxt='n', lwd=1.5)
+plot( 1:length(TESTRANGE), sapply(g_cons,median), type="b", col="darkgreen",ylab="n consistent", ylim=c(0,MYMAX),  xaxt='n', lwd=1.5)
 axis(side = 1, at = 1:length(TESTRANGE), labels = TESTRANGE, tck = -0.05)
 lapply(1:length(g_cons), function(i) {
   y0 <- summary(g_cons[[i]])[2]
@@ -619,14 +619,21 @@ lapply(1:length(g_cons), function(i) {
   arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkgreen", lwd=1.5)
 } )
 
-points( (1:length(TESTRANGE))+0.1, sapply(f_cons,mean), type="b" , col="darkorange", lwd=1.5)
+points( (1:length(TESTRANGE)), sapply(gt_cons,median), type="b" , col="red", lwd=1.5)
+lapply(1:length(gt_cons), function(i) {
+  y0 <- summary(gt_cons[[i]])[2]
+  y1 <- summary(gt_cons[[i]])[5]
+  arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="red", lwd=1.5)
+} )
+
+points( (1:length(TESTRANGE))+0.1, sapply(f_cons,median), type="b" , col="darkorange", lwd=1.5)
 lapply(1:length(f_cons), function(i) {
   y0 <- summary(f_cons[[i]])[2]
   y1 <- summary(f_cons[[i]])[5]
   arrows(x0=i+0.1,x1=i+0.1,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkorange", lwd=1.5)
 } )
 
-points( (1:length(TESTRANGE))-0.1, sapply(o_cons,mean), type="b" , col="magenta", lwd=1.5)
+points( (1:length(TESTRANGE))-0.1, sapply(o_cons,median), type="b" , col="magenta", lwd=1.5)
 lapply(1:length(o_cons), function(i) {
   y0 <- summary(o_cons[[i]])[2]
   y1 <- summary(o_cons[[i]])[5]
@@ -634,11 +641,11 @@ lapply(1:length(o_cons), function(i) {
 } )
 
 legend(x = "topleft", box.lwd = 2 , lwd=1, lty=1,
-       legend=c("GSVA", "FCS", "ORA"),
-       col = c("darkgreen","darkorange","magenta"))
+       legend=c("GSVA", "GSVA-TC", "FCS", "ORA"),
+       col = c("darkgreen","red", "darkorange","magenta"))
 
 par(mar=c(4.1,4.1,0.1,0.1))
-plot( sapply(g_ppi,mean), type="b" , col="darkgreen", xlab="sample size (n)",ylab="proportion inconsistent", ylim=c(0,1), xaxt='n', lwd=1.5)
+plot( 1:length(TESTRANGE), sapply(g_ppi,median), type="b" , col="darkgreen", xlab="sample size (n)",ylab="proportion inconsistent", ylim=c(0,1), xaxt='n', lwd=1.5)
 axis(side = 1, at = 1:length(TESTRANGE), labels = TESTRANGE, tck = -0.05)
 lapply(1:length(g_ppi), function(i) {
   y0 <- summary(g_ppi[[i]])[2]
@@ -646,14 +653,21 @@ lapply(1:length(g_ppi), function(i) {
   arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkgreen", lwd=1.5)
 } )
 
-points( (1:length(TESTRANGE))+0.1, sapply(f_ppi,mean), type="b" , col="darkorange", lwd=1.5)
+points( (1:length(TESTRANGE))+0.1, sapply(gt_ppi,median), type="b" , col="red", lwd=1.5)
+lapply(1:length(gt_ppi), function(i) {
+  y0 <- summary(gt_ppi[[i]])[2]
+  y1 <- summary(gt_ppi[[i]])[5]
+  arrows(x0=i+0.1,x1=i+0.1,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="red", lwd=1.5)
+} )
+
+points( (1:length(TESTRANGE))+0.1, sapply(f_ppi,median), type="b" , col="darkorange", lwd=1.5)
 lapply(1:length(f_ppi), function(i) {
   y0 <- summary(f_ppi[[i]])[2]
   y1 <- summary(f_ppi[[i]])[5]
   arrows(x0=i+0.1,x1=i+0.1,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkorange", lwd=1.5)
 } )
 
-points( (1:length(TESTRANGE))-0.1, sapply(o_ppi,mean), type="b" , col="magenta", lwd=1.5)
+points( (1:length(TESTRANGE))-0.1, sapply(o_ppi,median), type="b" , col="magenta", lwd=1.5)
 lapply(1:length(o_ppi), function(i) {
   y0 <- summary(o_ppi[[i]])[2]
   y1 <- summary(o_ppi[[i]])[5]
@@ -665,7 +679,7 @@ par(mfrow=c(2,1))
 par(mar=c(3.1,4.1,1.1,0.1))
 
 MYMAX <- max(sapply(g_cons,max))
-plot( 1:length(TESTRANGE), sapply(g_cons,mean), type="b", col="darkgreen",ylab="n consistent", ylim=c(0,MYMAX),  xaxt='n', lwd=1.5)
+plot( 1:length(TESTRANGE), sapply(g_cons,median), type="b", col="darkgreen",ylab="n consistent", ylim=c(0,MYMAX),  xaxt='n', lwd=1.5)
 axis(side = 1, at = 1:length(TESTRANGE), labels = TESTRANGE, tck = -0.05)
 lapply(1:length(g_cons), function(i) {
   y0 <- summary(g_cons[[i]])[2]
@@ -673,14 +687,21 @@ lapply(1:length(g_cons), function(i) {
   arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkgreen", lwd=1.5)
 } )
 
-points( (1:length(TESTRANGE))+0.1, sapply(f_cons,mean), type="b" , col="darkorange", lwd=1.5)
+points( (1:length(TESTRANGE)), sapply(gt_cons,median), type="b" , col="red", lwd=1.5)
+lapply(1:length(gt_cons), function(i) {
+  y0 <- summary(gt_cons[[i]])[2]
+  y1 <- summary(gt_cons[[i]])[5]
+  arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="red", lwd=1.5)
+} )
+
+points( (1:length(TESTRANGE))+0.1, sapply(f_cons,median), type="b" , col="darkorange", lwd=1.5)
 lapply(1:length(f_cons), function(i) {
   y0 <- summary(f_cons[[i]])[2]
   y1 <- summary(f_cons[[i]])[5]
   arrows(x0=i+0.1,x1=i+0.1,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkorange", lwd=1.5)
 } )
 
-points( (1:length(TESTRANGE))-0.1, sapply(o_cons,mean), type="b" , col="magenta", lwd=1.5)
+points( (1:length(TESTRANGE))-0.1, sapply(o_cons,median), type="b" , col="magenta", lwd=1.5)
 lapply(1:length(o_cons), function(i) {
   y0 <- summary(o_cons[[i]])[2]
   y1 <- summary(o_cons[[i]])[5]
@@ -688,11 +709,11 @@ lapply(1:length(o_cons), function(i) {
 } )
 
 legend(x = "topleft", box.lwd = 2 , lwd=1, lty=1,
-       legend=c("GSVA", "FCS", "ORA"),
-       col = c("darkgreen","darkorange","magenta"))
+       legend=c("GSVA", "GSVA-TC", "FCS", "ORA"),
+       col = c("darkgreen","red", "darkorange","magenta"))
 
 par(mar=c(4.1,4.1,0.1,0.1))
-plot( sapply(g_ppi,mean), type="b" , col="darkgreen", xlab="sample size (n)",ylab="proportion inconsistent", ylim=c(0,1), xaxt='n', lwd=1.5)
+plot( 1:length(TESTRANGE), sapply(g_ppi,median), type="b" , col="darkgreen", xlab="sample size (n)",ylab="proportion inconsistent", ylim=c(0,1), xaxt='n', lwd=1.5)
 axis(side = 1, at = 1:length(TESTRANGE), labels = TESTRANGE, tck = -0.05)
 lapply(1:length(g_ppi), function(i) {
   y0 <- summary(g_ppi[[i]])[2]
@@ -700,14 +721,21 @@ lapply(1:length(g_ppi), function(i) {
   arrows(x0=i,x1=i,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkgreen", lwd=1.5)
 } )
 
-points( (1:length(TESTRANGE))+0.1, sapply(f_ppi,mean), type="b" , col="darkorange", lwd=1.5)
+points( (1:length(TESTRANGE))+0.1, sapply(gt_ppi,median), type="b" , col="red", lwd=1.5)
+lapply(1:length(gt_ppi), function(i) {
+  y0 <- summary(gt_ppi[[i]])[2]
+  y1 <- summary(gt_ppi[[i]])[5]
+  arrows(x0=i+0.1,x1=i+0.1,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="red", lwd=1.5)
+} )
+
+points( (1:length(TESTRANGE))+0.1, sapply(f_ppi,median), type="b" , col="darkorange", lwd=1.5)
 lapply(1:length(f_ppi), function(i) {
   y0 <- summary(f_ppi[[i]])[2]
   y1 <- summary(f_ppi[[i]])[5]
   arrows(x0=i+0.1,x1=i+0.1,y0=y0,y1=y1, length=0.1, angle=90, code=3 ,col="darkorange", lwd=1.5)
 } )
 
-points( (1:length(TESTRANGE))-0.1, sapply(o_ppi,mean), type="b" , col="magenta", lwd=1.5)
+points( (1:length(TESTRANGE))-0.1, sapply(o_ppi,median), type="b" , col="magenta", lwd=1.5)
 lapply(1:length(o_ppi), function(i) {
   y0 <- summary(o_ppi[[i]])[2]
   y1 <- summary(o_ppi[[i]])[5]
