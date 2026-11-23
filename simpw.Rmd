@@ -503,29 +503,13 @@ precrec <- function(seed=42, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.5, FRAC_DE_PW=
 
 ```
 
-## Test the 2 different gene set libraries
-
-First simple, with 5000 sets wach containing 100 genes.
+## Test with multiple seeds
 
 Then with the size distribution from Reactome, which is more realistic.
 When the gene set size varies, then we can see how conventional methods are biased
 by size.
 
-
 ```{r,largescale2}
-
-res <- mclapply(1:10, function(seed) {
-  precrec(seed=seed, N_REPS=5, SUM_COUNT=10e6, VARIANCE=0.45, FRAC_DE_PW=0.02, effect="low")
-}, mc.cores=10)
-
-resdf <- do.call(rbind,res)
-
-resdf %>%
-  kbl(caption="Repeatability with multiple seeds - gene sets 100 in size") %>%
-  kable_paper("hover", full_width = F)
-
-colMeans(resdf)
-
 
 res2 <- mclapply(1:10, function(seed) {
   precrec(seed=seed, N_REPS=5, SUM_COUNT=10e6, VARIANCE=0.45, FRAC_DE_PW=0.02, effect="low")
@@ -538,6 +522,7 @@ resdf2 %>%
   kable_paper("hover", full_width = F)
 
 colMeans(resdf2)
+summary(resdf2)
 
 ```
 
@@ -546,12 +531,14 @@ colMeans(resdf2)
 ```{r,count_effect}
 
 count_analysis <- lapply( seq(10,60,10), function(COUNTS) {
-  res <- mclapply(1:10, function(seed) {
+  res <- mclapply(1:100, function(seed) {
     precrec(seed=seed, N_REPS=5, SUM_COUNT=COUNTS * 1e6, VARIANCE=0.45, FRAC_DE_PW=0.02, effect="low")
   }, mc.cores=10)
   out <- do.call(rbind, res)
   return(out)
 } )
+
+lapply(count_analysis, summary)
 
 names(count_analysis) <- seq(10,60,10)
 count_analysis_tbl <- do.call(rbind,lapply(count_analysis,colMeans))
@@ -573,12 +560,14 @@ colMeans(count_analysis_tbl)
 ```{r,nreps_effect}
 
 samplesize_analysis <- lapply( seq(2,10,1), function(N_REPS) {
-  res <- mclapply(1:10, function(seed) {
+  res <- mclapply(1:100, function(seed) {
     precrec(seed=seed, N_REPS=N_REPS, SUM_COUNT=20e6, VARIANCE=0.45, FRAC_DE_PW=0.02, effect="low")
   }, mc.cores=10)
   out <- do.call(rbind, res)
   return(out)
 } )
+
+lapply(samplesize_analysis, summary)
 
 names(samplesize_analysis) <- seq(2,10,1)
 samplesize_analysis_tbl <- do.call(rbind,lapply(samplesize_analysis,colMeans))
@@ -598,12 +587,14 @@ samplesize_analysis_tbl[,c(4,7,10,13)]
 ```{r,variation_effect}
 
 variation_analysis <- lapply( c(0.05,0.15,0.25,0.35,0.45,0.55,0.65), function(VARIANCE) {
-  res <- mclapply(1:10, function(seed) {
+  res <- mclapply(1:100, function(seed) {
     precrec(seed=seed, N_REPS=5, SUM_COUNT=20e6, VARIANCE=VARIANCE, FRAC_DE_PW=0.02, effect="low")
   }, mc.cores=10)
   out <- do.call(rbind, res)
   return(out)
 } )
+
+lapply(variation_analysis, summary)
 
 names(variation_analysis) <- c(0.05,0.15,0.25,0.35,0.45,0.55,0.65)
 variation_analysis_tbl <- do.call(rbind,lapply(variation_analysis,colMeans))
