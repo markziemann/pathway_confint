@@ -328,6 +328,16 @@ run_fora <- function(data,  gsets) {
 
 ## Function for running GSVA
 
+Done:
+* Gaussian same as default
+* ssGSEA with minmax set is bad
+* zscore bad
+* PLAGE is bad
+
+Tese tests were conducted by replacing gsvaParam with others like the following:
+`param <- plageParam(expr = expr, geneSets = gsets, minSize = 5, maxSize = 5000)`
+
+
 ```{r,benchmark_gsva}
 
 run_gsva <- function(data,  gsets) {
@@ -341,7 +351,7 @@ run_gsva <- function(data,  gsets) {
   y <- y[keep, , keep.lib.sizes = FALSE]
   y <- normLibSizes(y)
   expr <- cpm(y, log = TRUE, prior.count = 2)
-  param <- gsvaParam( expr = expr, geneSets = gsets, kcdf = "Gaussian", minSize = 5, maxSize = 5000)
+  param <- gsvaParam( expr = expr, geneSets = gsets, kcdf = "auto", minSize = 5, maxSize = 5000)
   scores <- gsva(param)
   fit <- limma::lmFit(scores, design)
   fit <- limma::eBayes(fit)
