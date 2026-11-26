@@ -284,7 +284,7 @@ run_fgsea <- function(data,  gsets, seed=1) {
   stats <- de$t
   names(stats) <- rownames(de)
   set.seed(seed*100)
-  fres <- fgsea(pathways=gsets, stats=stats, minSize=5 )
+  fres <- fgsea(pathways=gsets, stats=stats, minSize=10 )
   fres <- as.data.frame(fres)
   fres <- fres[order(fres$pval),]
   return(fres)
@@ -304,8 +304,8 @@ run_fora <- function(data,  gsets) {
   up <- unique(rownames(head(subset(de, logFC>0 ),1000)))
   dn <- unique(rownames(head(subset(de, logFC<0 ),1000)))
   bg <- unique(rownames(de))
-  ores_up <- fora(pathways=gsets,genes=up,universe=bg,minSize=5)
-  ores_dn <- fora(pathways=gsets,genes=dn,universe=bg,minSize=5)
+  ores_up <- fora(pathways=gsets,genes=up,universe=bg,minSize=10)
+  ores_dn <- fora(pathways=gsets,genes=dn,universe=bg,minSize=10)
   # flip enrichment sign for down genes
   ores_dn$foldEnrichment <- ores_dn$foldEnrichment * -1
   # combine separate tests for up and down into single output
@@ -335,8 +335,11 @@ Done:
 * PLAGE is bad
 
 Tese tests were conducted by replacing gsvaParam with others like the following:
-`param <- plageParam(expr = expr, geneSets = gsets, minSize = 5, maxSize = 5000)`
+`param <- plageParam(expr = expr, geneSets = gsets, minSize = 10, maxSize = 5000)`
 
+We tried "Poisson" option in `gsvaParam()` but it showed worse precision with low variance testing.
+
+I tried abs(confect)>0.2 but it had a worse precision. Here a threshold of 0.3 is used.
 
 ```{r,benchmark_gsva}
 
@@ -347,15 +350,15 @@ run_gsva <- function(data,  gsets) {
   rownames(ss) <- ss[,1]
   design <- model.matrix(~ group, data = ss)
   y <- DGEList(counts = mx)
-  keep <- filterByExpr(y)
+  keep <- filterByExpr(y, design= design)
   y <- y[keep, , keep.lib.sizes = FALSE]
   y <- normLibSizes(y)
   expr <- cpm(y, log = TRUE, prior.count = 2)
-  param <- gsvaParam( expr = expr, geneSets = gsets, kcdf = "auto", minSize = 5, maxSize = 5000)
+  param <- gsvaParam( expr = expr, geneSets = gsets, kcdf = "Gaussian", minSize = 10, maxSize = 5000)
   scores <- gsva(param)
   fit <- limma::lmFit(scores, design)
-  fit <- limma::eBayes(fit)
-  results <- topTable(fit, coef = "grouptrt", number = Inf, adjust.method = "fdr")
+  fit <- limma::eBayes(fit, trend = TRUE, robust = TRUE)
+  results <- topTable(fit, coef = "grouptrt", number = Inf, adjust.method = "BH")
   confects <- limma_confects(fit, coef="grouptrt", fdr=0.05)
   gres <- merge(results,confects$table,by.x=0,by.y="name")
   gres <- gres[order(abs(gres$rank)),]
@@ -424,8 +427,8 @@ v1 <- list("GSVA up"=test_gsva_up, "GSVA dn"=test_gsva_dn, "GT up"=gt_up, "GT_dn
 
 plot(euler(v1),quantities = TRUE)
 
-test_gsva_up <- subset(test_gsva, confect > 0.2 )$Row.names
-test_gsva_dn <- subset(test_gsva, confect < -0.2 )$Row.names
+test_gsva_up <- subset(test_gsva, confect >= 0.3 )$Row.names
+test_gsva_dn <- subset(test_gsva, confect <= -0.3 )$Row.names
 
 v1 <- list("Confect up"=test_gsva_up, "Confect dn"=test_gsva_dn, "GT up"=gt_up, "GT_dn"=gt_dn)
 
@@ -453,29 +456,29 @@ precrec <- function(seed=42, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.35, FRAC_DE_PW
   gt_de <- c(gt_up,gt_dn)
 
   test_fgsea <- run_fgsea(data=testdata, gsets=gs2, seed=seed)
-  test_fgsea_up <- subset(test_fgsea, padj < 0.05 & ES > 0 )$pathway
-  test_fgsea_dn <- subset(test_fgsea, padj < 0.05 & ES < 0 )$pathway
+  test_fgsea_up <- subset(test_fgsea, padj <= 0.05 & ES > 0 )$pathway
+  test_fgsea_dn <- subset(test_fgsea, padj <= 0.05 & ES < 0 )$pathway
   test_fgsea_up <- paste(test_fgsea_up,"up")
   test_fgsea_dn <- paste(test_fgsea_dn,"dn")
   test_fgsea_de <- c(test_fgsea_up,test_fgsea_dn)
 
   test_fora <- run_fora(data=testdata,  gsets=gs2)
-  test_fora_up <- subset(test_fora, padj < 0.05 & foldEnrichment > 0 )$pathway
-  test_fora_dn <- subset(test_fora, padj < 0.05 & foldEnrichment < 0 )$pathway
+  test_fora_up <- subset(test_fora, padj <= 0.05 & foldEnrichment > 0 )$pathway
+  test_fora_dn <- subset(test_fora, padj <= 0.05 & foldEnrichment < 0 )$pathway
   test_fora_up <- paste(test_fora_up,"up")
   test_fora_dn <- paste(test_fora_dn,"dn")
   test_fora_de <- c(test_fora_up,test_fora_dn)
 
   test_gsva <- run_gsva(data=testdata,  gsets=gs2)
-  test_gsva_up <- subset(test_gsva, adj.P.Val < 0.05 & logFC > 0 )$Row.names
-  test_gsva_dn <- subset(test_gsva, adj.P.Val < 0.05 & logFC < 0 )$Row.names
+  test_gsva_up <- subset(test_gsva, adj.P.Val <= 0.05 & logFC > 0 )$Row.names
+  test_gsva_dn <- subset(test_gsva, adj.P.Val <= 0.05 & logFC < 0 )$Row.names
   test_gsva_up <- paste(test_gsva_up,"up")
   test_gsva_dn <- paste(test_gsva_dn,"dn")
   test_gsva_de <- c(test_gsva_up,test_gsva_dn)
 
   test_gsva <- run_gsva(data=testdata,  gsets=gs2)
-  test_cfct_up <- subset(test_gsva, confect > 0.2 )$Row.names
-  test_cfct_dn <- subset(test_gsva, confect < -0.2 )$Row.names
+  test_cfct_up <- subset(test_gsva, confect >= 0.3 )$Row.names
+  test_cfct_dn <- subset(test_gsva, confect <= -0.3 )$Row.names
 
   test_cfct_up <- paste(test_cfct_up,"up")
   test_cfct_dn <- paste(test_cfct_dn,"dn")
