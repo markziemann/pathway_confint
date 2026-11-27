@@ -373,8 +373,6 @@ I think this demonstration shows the power of applying confects.
 
 ```{r, small_scale_demonstration1}
 
-blah()
-
 seed=42
 
 gs2 <- randomGeneSets2(a=a, gsr=gsr, nsets=5000, seed=seed)
