@@ -1,0 +1,472 @@
+---
+title: "Confident effect sizes of pathway activity - simulation - prioritisation analysis"
+author: "Mark Ziemann"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    fig_width: 7
+    fig_height: 7
+theme: cosmo
+---
+
+Source: https://github.com/markziemann/pathway_confint
+
+## Libs
+
+```{r,libs}
+
+suppressPackageStartupMessages({
+  library("GSVA")
+  library("edgeR")
+  library("kableExtra")
+  library("gplots")
+  library("fgsea")
+  library("beeswarm")
+  library("topconfects")
+  library("fgsea")
+  library("eulerr")
+  library("parallel")
+  library("BiocParallel")
+  library("stringi")
+})
+
+register(MulticoreParam(workers = 1, progressbar = FALSE))
+
+```
+
+## Load gene expression data
+
+From GEO https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE158420
+GSE158420_counts.txt.gz
+
+Data was cleaned according to another script `GSE158420_geneexpression_prep.Rmd`
+
+```{r,loaddat}
+
+x <- readRDS("GSE158420_counts_fixed.rds")
+
+x[1:6,1:5]
+
+a <- as.data.frame(rowSums(x))
+
+colnames(a) <- "data"
+
+head(a)
+
+colSums(a) / 1e6
+
+```
+
+## Get reactome gene sets
+
+```{r,reactome}
+
+gmt_import <- function(gmtfile) {
+    genesetLines <- strsplit(readLines(gmtfile), "\t")
+    genesets <- lapply(genesetLines, utils::tail, -2)
+    names(genesets) <- unlist(lapply(genesetLines, head, 1))
+    attributes(genesets)$originfile <- gmtfile
+    genesets <- genesets[lapply(genesets,length)>0]
+    if( any(duplicated(names(genesets))) ) {
+        warning("Duplicated gene sets names detected")
+    }
+    genesets
+}
+
+gs <- gmt_import("ReactomePathways_2026-10-23.gmt")
+
+# change names to make it easier to manage
+names(gs) <- sapply(1:length(gs), function(i) {
+  set.seed(i*100)
+  paste(sample(x=letters, size=20, replace=TRUE), collapse="",sep="")
+} )
+
+```
+
+Make completely random gene sets.
+
+All length = 100
+
+```{r,random_gs}
+
+randomGeneSets <- function(a){
+  gsets <- sapply( rep(100,5000) , function(x) {
+    list(as.character(sample(rownames(a),x)))
+  } )
+  names(gsets) <- stri_rand_strings(length(gsets), 15, pattern = "[A-Za-z]")
+  return(gsets)
+}
+
+gs <- randomGeneSets(a)
+
+```
+
+Make random gene sets with length distribution taken from Reactome.
+
+```{r,random_gs2}
+
+gsr <- gmt_import("ReactomePathways_2026-10-23.gmt")
+
+randomGeneSets2 <- function(a,gsr,nsets=5000,seed) {
+  gs_lengths <- unname(unlist(lapply(gsr,length)))
+  gs_lengths <- gs_lengths[which(gs_lengths >= 10)]
+  set.seed(seed) ; myseeds <- sample(1:1e6,size=nsets,replace=FALSE)
+  new_gs_length <- sample(gs_lengths,nsets,replace=TRUE)
+  new_gs <- lapply(1:length(new_gs_length), function(i) {
+    l <- new_gs_length[i]
+    myseed <- myseeds[i]
+    set.seed(myseed)
+    as.character( sample(rownames(a),l) )
+  } )
+  set.seed(seed)
+  names(new_gs) <- stri_rand_strings(length(new_gs), 15, pattern = "[A-Za-z]")
+  return(new_gs)
+}
+
+gs2 <- randomGeneSets2(a=a, gsr=gsr, nsets=5000, seed=42)
+
+```
+
+## Downsample
+
+Simulate some differential gene expression data
+
+Effect size distributions
+
+low=seq(0.4,0.8,0.1)
+
+medium=seq(0.5,1.2,0.1)
+
+high=seq(0.8,1.6,0.1)
+
+```{r,downsample_simulation_function}
+
+FC=c("low","medium","high")
+
+#gsets=gs
+
+simcounts <- function(counts, N_REPS=5, SUM_COUNT=20e6, VARIANCE=0.35, FRAC_DE_PW=0.1, effect="medium", gsets, seed=1) {
+
+  # Use edgeR::thincounts to create pseudoreplicate datasets
+  df  = NULL
+  for (k in paste0("data",1:(N_REPS*2)))  {
+    set.seed(seed*100)
+    b <- thinCounts(a,target.size=SUM_COUNT)
+    colnames(b) <- k
+    df <- cbind(df,b)
+  }
+
+  ## Put some variance into the samples!
+  if (VARIANCE > 0) {
+    #create some random values centred around 1 with some% error
+    set.seed(seed*500)
+    # watch out for NA values when negative numbers are log transformed
+    noise <- rnorm(nrow(a)*N_REPS*2 , 2, VARIANCE)
+    noise[noise < 0] <- median(noise)
+    rand <- matrix(log2(noise),ncol=N_REPS*2)
+    #incorporate the noise
+    df <- round(df*rand)
+    #set any negative counts to zero
+    df <- apply(df, 2, function(x) { ifelse(x < 0, 0, x) })
+  }
+
+  # Select gene sets with more than 10 members present in the matrix
+  gsets_sub <- which(unlist( lapply(gsets,function(x) {
+    length(which(rownames(a) %in% as.character(unlist(x)))) >10
+  }  ) ) )
+  gsets <- gsets[which(names(gsets) %in% names(gsets_sub))]
+
+  NDIF=round(length(gsets)*FRAC_DE_PW)
+  if ( NDIF%%2==1 ) { NDIF=NDIF-1 }
+
+  if ( effect == "low" ) {
+    FC_VALS <- seq(0.4,0.8,0.1)
+  }
+  if ( effect == "medium" ) {
+    FC_VALS <- seq(0.5,1.2,0.1)
+  }
+  if ( effect == "high" ) {
+    FC_VALS <- seq(0.8,1.6,0.1)
+  }
+
+  # generate target numbers for each pathway
+  set.seed(seed*1000)
+  PWFC <- sample(x=FC_VALS,size=NDIF,replace=TRUE)
+
+  # Flip half the signs
+  PWFC <- PWFC * ( ( ( 1:length(PWFC) %% 2 ) *2 ) -1 )
+
+  # Select the DE pathways and genes
+  set.seed(seed*10000)
+  DEPW_LIST <- sample(gsets , NDIF)
+  # dataframe of pathway name and LOGFC
+  DEPW_DF <- data.frame(names(DEPW_LIST),PWFC)
+  DEGENES <- unique(unlist(DEPW_LIST))
+
+  # for each DEGENE, get the fold change of it
+  # which will be a product of all the
+  DELFC <- sapply(DEGENES, function(g) {
+    matches <- names(which(sapply(DEPW_LIST, function(mygs) {
+      length(which( mygs == g ))
+    } ) == 1))
+    LFC <- prod( DEPW_DF[match(matches, DEPW_DF[,1]),2] )
+    return(LFC)
+  } )
+  names(DELFC) <- DEGENES
+
+  # Now because the final FC of each gene is a product
+  # we can find the mean of all the gene in the set
+  # correlation of 0.7 between planned and final pathway level FCs
+  DEPW_DF$final_LFC <- sapply(DEPW_DF$names.DEPW_LIST., function(mygs) {
+    setgenes <- DEPW_LIST[[which(names(DEPW_LIST) == mygs)]]
+    final_LFC <- mean(DELFC[which(names(DELFC) %in% setgenes)])
+    return(final_LFC)
+  } )
+
+  ## Now simply incorporate these fold changes
+  # get the steady genes with no change
+  NCnames <- rownames(df[which(! rownames(df) %in% names(DELFC) ),])
+  NCvec <- rep(x=1,times=length(NCnames))
+  names(NCvec) <- NCnames
+  # combine with the DE fold changes converted from log to linear scale
+  FCvec <- c(2^DELFC,NCvec)
+  FCvec <- FCvec[match(rownames(df),names(FCvec))]
+  # apply fold changes to case group
+  CASE <- df[,(N_REPS+1):ncol(df)]
+  CASE <- round(apply(CASE,2, function(x) { x * FCvec } ))
+  # no changes to ctrl group
+  CTRL <- df[,1:N_REPS]
+  # output the combined
+  df2 <- as.data.frame(cbind(CTRL,CASE))
+
+  ss <- data.frame(colnames(df2))
+  ss$group <- c( rep(x="ctrl",times=nrow(ss)/2)  , rep(x="trt",times=nrow(ss)/2) )
+  rownames(ss) <- ss[,1]
+  design <- model.matrix(~ group, data = ss)
+  y <- DGEList(counts = df2)
+  keep <- filterByExpr(y)
+  y <- y[keep, , keep.lib.sizes = FALSE]
+  y <- normLibSizes(y)
+  v <- voom(y, design)
+  fit <- lmFit(v, design)
+  fit2 <- eBayes(fit)
+  dge <- topTable(fit2, coef = "grouptrt", number = Inf, adjust.method = "fdr")
+  out <- list("a"=df2,"fcdf"=DEPW_DF, "dge"=dge)
+  return(out)
+}
+
+testdata <- simcounts(counts=a, N_REPS=4, SUM_COUNT=20e6,
+  VARIANCE=0.4, FRAC_DE_PW=0.005, effect="medium", gsets=gs, seed=300)
+
+str(testdata)
+
+dge <- testdata[[3]]
+
+n_dge <- nrow(subset(dge,adj.P.Val<0.05))
+
+n_dge
+
+```
+
+## Function for running FGSEA
+
+Run fgsea and see if the NES prioritisation works.
+
+Run a basic test to show GT pathways are actually altered with FDR selection.
+
+```{r,benchmark_fgsea}
+
+# the data object is a list that contains 1 count matrix and 1 DF of PW fold changes
+run_fgsea <- function(data,  gsets, seed=1) {
+  de <- data[[3]]
+  stats <- de$t
+  names(stats) <- rownames(de)
+  set.seed(seed*100)
+  fres <- fgsea(pathways=gsets, stats=stats, minSize=10 )
+  fres <- as.data.frame(fres)
+  fres <- fres[order(fres$pval),]
+  return(fres)
+}
+
+```
+
+## Function for running ORA
+
+```{r,benchmark_ora}
+
+run_fora <- function(data,  gsets) {
+  de <- data[[3]]
+  # select genes for ORA
+#  up <- unique(rownames(head(subset(de, logFC>0 & adj.P.Val<0.05),1000)))
+#  dn <- unique(rownames(head(subset(de, logFC<0 & adj.P.Val<0.05),1000)))
+  up <- unique(rownames(head(subset(de, logFC>0 ),1000)))
+  dn <- unique(rownames(head(subset(de, logFC<0 ),1000)))
+  bg <- unique(rownames(de))
+  ores_up <- fora(pathways=gsets,genes=up,universe=bg,minSize=10)
+  ores_dn <- fora(pathways=gsets,genes=dn,universe=bg,minSize=10)
+  # flip enrichment sign for down genes
+  ores_dn$foldEnrichment <- ores_dn$foldEnrichment * -1
+  # combine separate tests for up and down into single output
+  o_comb <- lapply(ores_up$pathway, function(x) {
+    upES <- subset(ores_up,pathway==x)[,"foldEnrichment"]
+    dnES <-  subset(ores_dn,pathway==x)[,"foldEnrichment"]
+    if ( is.na(upES) ) { upES <- 0  }
+    if ( is.na(dnES) ) { dnES <- 0  }
+    if ( abs(upES) >= abs(dnES) ) {
+      subset(ores_up,pathway==x)
+    } else {
+      subset(ores_dn,pathway==x)
+    }
+  } )
+  ores <- as.data.frame(do.call(rbind,o_comb))
+  return(ores)
+}
+
+```
+
+## Function for running GSVA
+
+Done:
+* Gaussian same as default
+* ssGSEA with minmax set is bad
+* zscore bad
+* PLAGE is bad
+
+Tese tests were conducted by replacing gsvaParam with others like the following:
+`param <- plageParam(expr = expr, geneSets = gsets, minSize = 10, maxSize = 5000)`
+
+We tried "Poisson" option in `gsvaParam()` but it showed worse precision with low variance testing.
+
+I tried abs(confect)>0.2 but it had a worse precision. Here a threshold of 0.3 is used.
+
+```{r,benchmark_gsva}
+
+run_gsva <- function(data,  gsets) {
+  mx <- data[[1]]
+  ss <- data.frame(colnames(mx))
+  ss$group <- c( rep(x="ctrl",times=nrow(ss)/2)  , rep(x="trt",times=nrow(ss)/2) )
+  rownames(ss) <- ss[,1]
+  design <- model.matrix(~ group, data = ss)
+  y <- DGEList(counts = mx)
+  keep <- filterByExpr(y, design= design)
+  y <- y[keep, , keep.lib.sizes = FALSE]
+  y <- normLibSizes(y)
+  expr <- cpm(y, log = TRUE, prior.count = 2)
+  param <- gsvaParam( expr = expr, geneSets = gsets, kcdf = "Gaussian", minSize = 10, maxSize = 5000)
+  scores <- gsva(param)
+  fit <- limma::lmFit(scores, design)
+  fit <- limma::eBayes(fit, trend = TRUE, robust = TRUE)
+  results <- topTable(fit, coef = "grouptrt", number = Inf, adjust.method = "BH")
+  confects <- limma_confects(fit, coef="grouptrt", fdr=0.05)
+  gres <- merge(results,confects$table,by.x=0,by.y="name")
+  gres <- gres[order(abs(gres$rank)),]
+  return(gres)
+}
+
+```
+
+## Small-scale comparison of FCS, ORA, GSVA and confects
+
+I think this demonstration shows the power of applying confects.
+
+```{r, small_scale_demonstration1}
+
+blah()
+
+seed=42
+
+gs2 <- randomGeneSets2(a=a, gsr=gsr, nsets=5000, seed=seed)
+
+testdata <- simcounts(counts=a, N_REPS=10, SUM_COUNT=20e6,
+  VARIANCE=0.35, FRAC_DE_PW=0.02, effect="low", gsets=gs2, seed=seed)
+
+fcdf <- testdata[[2]]
+head(fcdf)
+str(testdata)
+dge <- testdata[[3]]
+n_dge <- nrow(subset(dge,adj.P.Val<0.05))
+n_dge
+
+## Test FGSEA
+test_fgsea <- run_fgsea(data=testdata, gsets=gs2, seed=seed)
+test_fgsea$sign_pval <- -log10(test_fgsea$pval) * sign(test_fgsea$ES)
+head(test_fgsea)
+mf <- merge(test_fgsea,fcdf,by.x="pathway",by.y="names.DEPW_LIST.")
+mf[is.na(mf)] <- 0
+mff <- subset(mf,padj<0.05 | PWFC != 0 )
+
+dim(mff)
+plot(abs(mff$PWFC),abs(mff$ES))
+cor(abs(mff$PWFC),abs(mff$ES),method="pearson")
+cor(abs(mff$PWFC),abs(mff$ES),method="spearman")
+cor(mff$PWFC,mff$ES,method="pearson")
+cor(mff$PWFC,mff$ES,method="spearman")
+
+plot(abs(mff$PWFC),abs(mff$NES))
+cor(abs(mff$PWFC),abs(mff$NES),method="pearson")
+cor(abs(mff$PWFC),abs(mff$NES),method="spearman")
+cor(mff$PWFC,mff$NES,method="pearson")
+cor(mff$PWFC,mff$NES,method="spearman")
+
+plot(abs(mff$PWFC),abs(mff$sign_pval))
+cor(abs(mff$PWFC),abs(mff$sign_pval),method="pearson")
+cor(abs(mff$PWFC),abs(mff$sign_pval),method="spearman")
+cor(mff$PWFC,mff$sign_pval,method="pearson")
+cor(mff$PWFC,mff$sign_pval,method="spearman")
+
+## Test FORA
+test_fora <- run_fora(data=testdata,  gsets=gs2)
+test_fora$sign_pval <- -log10(test_fora$pval) * sign(test_fora$foldEnrichment)
+head(test_fora)
+mo <- merge(test_fora,fcdf,by.x="pathway",by.y="names.DEPW_LIST.")
+mo[is.na(mo)] <- 0
+mof <- subset(mo,padj<0.05 | PWFC != 0 )
+
+dim(mof)
+plot(abs(mof$PWFC),abs(mof$foldEnrichment))
+cor(abs(mof$PWFC),abs(mof$foldEnrichment),method="pearson")
+cor(abs(mof$PWFC),abs(mof$foldEnrichment),method="spearman")
+cor(mof$PWFC,mof$foldEnrichment,method="pearson")
+cor(mof$PWFC,mof$foldEnrichment,method="spearman")
+
+plot(abs(mof$PWFC),abs(mof$sign_pval))
+cor(abs(mof$PWFC),abs(mof$sign_pval),method="pearson")
+cor(abs(mof$PWFC),abs(mof$sign_pval),method="spearman")
+cor(mof$PWFC,mof$sign_pval,method="pearson")
+cor(mof$PWFC,mof$sign_pval,method="spearman")
+
+## Test GSVA
+test_gsva <- run_gsva(data=testdata,  gsets=gs2)
+test_gsva$sign_pval <- -log10(test_gsva$P.Value) * sign(test_gsva$logFC)
+head(test_gsva)
+
+mg <- merge(test_gsva,fcdf,by.x="Row.names",by.y="names.DEPW_LIST.")
+mg[is.na(mg)] <- 0
+mgf <- subset(mg,adj.P.Val<0.05 | PWFC != 0 )
+
+dim(mgf)
+plot(abs(mgf$PWFC),abs(mgf$logFC))
+cor(abs(mgf$PWFC),abs(mgf$logFC),method="pearson")
+cor(abs(mgf$PWFC),abs(mgf$logFC),method="spearman")
+cor(mgf$PWFC,mgf$logFC,method="pearson")
+cor(mgf$PWFC,mgf$logFC,method="spearman")
+
+plot(abs(mgf$PWFC),abs(mgf$confect))
+cor(abs(mgf$PWFC),abs(mgf$confect),method="pearson")
+cor(abs(mgf$PWFC),abs(mgf$confect),method="spearman")
+cor(mgf$PWFC,mgf$confect,method="pearson")
+cor(mgf$PWFC,mgf$confect,method="spearman")
+
+```
+
+## Session
+
+```{r,session}
+
+save.image("simpw.Rdata")
+
+sessionInfo()
+
+```
