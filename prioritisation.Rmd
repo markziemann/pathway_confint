@@ -378,7 +378,7 @@ seed=42
 gs2 <- randomGeneSets2(a=a, gsr=gsr, nsets=5000, seed=seed)
 
 testdata <- simcounts(counts=a, N_REPS=10, SUM_COUNT=20e6,
-  VARIANCE=0.35, FRAC_DE_PW=0.02, effect="low", gsets=gs2, seed=seed)
+  VARIANCE=0.35, FRAC_DE_PW=0.02, effect="medium", gsets=gs2, seed=seed)
 
 fcdf <- testdata[[2]]
 head(fcdf)
@@ -399,20 +399,14 @@ dim(mff)
 plot(abs(mff$final_LFC),abs(mff$ES))
 cor(abs(mff$final_LFC),abs(mff$ES),method="pearson")
 cor(abs(mff$final_LFC),abs(mff$ES),method="spearman")
-cor(mff$final_LFC,mff$ES,method="pearson")
-cor(mff$final_LFC,mff$ES,method="spearman")
 
 plot(abs(mff$final_LFC),abs(mff$NES))
 cor(abs(mff$final_LFC),abs(mff$NES),method="pearson")
 cor(abs(mff$final_LFC),abs(mff$NES),method="spearman")
-cor(mff$final_LFC,mff$NES,method="pearson")
-cor(mff$final_LFC,mff$NES,method="spearman")
 
 plot(abs(mff$final_LFC),abs(mff$sign_pval))
 cor(abs(mff$final_LFC),abs(mff$sign_pval),method="pearson")
 cor(abs(mff$final_LFC),abs(mff$sign_pval),method="spearman")
-cor(mff$final_LFC,mff$sign_pval,method="pearson")
-cor(mff$final_LFC,mff$sign_pval,method="spearman")
 
 ## Test FORA
 test_fora <- run_fora(data=testdata,  gsets=gs2)
@@ -426,14 +420,10 @@ dim(mof)
 plot(abs(mof$final_LFC),abs(mof$foldEnrichment))
 cor(abs(mof$final_LFC),abs(mof$foldEnrichment),method="pearson")
 cor(abs(mof$final_LFC),abs(mof$foldEnrichment),method="spearman")
-cor(mof$final_LFC,mof$foldEnrichment,method="pearson")
-cor(mof$final_LFC,mof$foldEnrichment,method="spearman")
 
 plot(abs(mof$final_LFC),abs(mof$sign_pval))
 cor(abs(mof$final_LFC),abs(mof$sign_pval),method="pearson")
 cor(abs(mof$final_LFC),abs(mof$sign_pval),method="spearman")
-cor(mof$final_LFC,mof$sign_pval,method="pearson")
-cor(mof$final_LFC,mof$sign_pval,method="spearman")
 
 ## Test GSVA
 test_gsva <- run_gsva(data=testdata,  gsets=gs2)
@@ -448,22 +438,160 @@ dim(mgf)
 plot(abs(mgf$final_LFC),abs(mgf$logFC))
 cor(abs(mgf$final_LFC),abs(mgf$logFC),method="pearson")
 cor(abs(mgf$final_LFC),abs(mgf$logFC),method="spearman")
-cor(mgf$final_LFC,mgf$logFC,method="pearson")
-cor(mgf$final_LFC,mgf$logFC,method="spearman")
 
 plot(abs(mgf$final_LFC),abs(mgf$confect))
 cor(abs(mgf$final_LFC),abs(mgf$confect),method="pearson")
 cor(abs(mgf$final_LFC),abs(mgf$confect),method="spearman")
-cor(mgf$final_LFC,mgf$confect,method="pearson")
-cor(mgf$final_LFC,mgf$confect,method="spearman")
 
 ```
+
+## Function for large-scale analysis
+
+```{r,large_function}
+
+prioritisation_test <- function(seed=42, N_REPS=10, SUM_COUNT=20e6, VARIANCE=0.35) {
+
+  gs2 <- randomGeneSets2(a=a, gsr=gsr, nsets=5000, seed=seed)
+
+  testdata <- simcounts(counts=a, N_REPS=N_REPS, SUM_COUNT=SUM_COUNT,
+    VARIANCE=VARIANCE, FRAC_DE_PW=0.02, effect="medium", gsets=gs2, seed=seed)
+
+  fcdf <- testdata[[2]]
+  dge <- testdata[[3]]
+  n_dge <- nrow(subset(dge,adj.P.Val<0.05))
+
+  ## Test FGSEA
+  test_fgsea <- run_fgsea(data=testdata, gsets=gs2, seed=seed)
+  test_fgsea$sign_pval <- -log10(test_fgsea$pval) * sign(test_fgsea$ES)
+  mf <- merge(test_fgsea,fcdf,by.x="pathway",by.y="names.DEPW_LIST.")
+  mf[is.na(mf)] <- 0
+  mff <- subset(mf,padj<0.05 | PWFC != 0 )
+  FCS_ES_spe <-cor(abs(mff$final_LFC),abs(mff$ES),method="spearman")
+  FCS_NES_spe <- cor(abs(mff$final_LFC),abs(mff$NES),method="spearman")
+  FCS_p_spe <- cor(abs(mff$final_LFC),abs(mff$sign_pval),method="spearman")
+
+  ## Test FORA
+  test_fora <- run_fora(data=testdata,  gsets=gs2)
+  test_fora$sign_pval <- -log10(test_fora$pval) * sign(test_fora$foldEnrichment)
+  mo <- merge(test_fora,fcdf,by.x="pathway",by.y="names.DEPW_LIST.")
+  mo[is.na(mo)] <- 0
+  mof <- subset(mo,padj<0.05 | PWFC != 0 )
+  ORA_FES_spe <- cor(abs(mof$final_LFC),abs(mof$foldEnrichment),method="spearman")
+  ORA_p_spe <- cor(abs(mof$final_LFC),abs(mof$sign_pval),method="spearman")
+
+  ## Test GSVA
+  test_gsva <- run_gsva(data=testdata,  gsets=gs2)
+  test_gsva$sign_pval <- -log10(test_gsva$P.Value) * sign(test_gsva$logFC)
+  mg <- merge(test_gsva,fcdf,by.x="Row.names",by.y="names.DEPW_LIST.")
+  mg[is.na(mg)] <- 0
+  mgf <- subset(mg,adj.P.Val<0.05 | PWFC != 0 )
+  GSVA_LFC_cor <- cor(abs(mgf$final_LFC),abs(mgf$logFC),method="pearson")
+  GSVA_LFC_spe <-cor(abs(mgf$final_LFC),abs(mgf$logFC),method="spearman")
+  GSVA_p_spe <-cor(abs(mgf$final_LFC),abs(mgf$sign_pval),method="spearman")
+  GSVA_confect_spe <- cor(abs(mgf$final_LFC),abs(mgf$confect),method="spearman")
+
+  out <- c("FCS_ES_spe"=FCS_ES_spe, "FCS_NES_spe"=FCS_NES_spe, "FCS_p_spe"=FCS_p_spe,
+    "ORA_FES_spe"=ORA_FES_spe, "ORA_p_spe"=ORA_p_spe, "GSVA_LFC_spe"=GSVA_LFC_spe,
+    "GSVA_p_spe"=GSVA_p_spe, "GSVA_confect_spe"=GSVA_confect_spe)
+
+  return(out)
+}
+
+mytest <- prioritisation_test(seed=42, N_REPS=10, SUM_COUNT=20e6, VARIANCE=0.35)
+mytest
+
+res <- mclapply(1:50, function(i) {
+  prioritisation_test(seed=i*100, N_REPS=10, SUM_COUNT=20e6, VARIANCE=0.35)
+} , mc.cores=10 )
+
+resdf <- do.call(rbind,res)
+sort(colMeans(resdf),decreasing=TRUE)
+
+par(mar=c(5.1,10.1,4.1,2.1))
+barplot(sort(colMeans(resdf)),horiz=TRUE,las=1,xlim=c(0.0,0.8))
+par(mar=c(5.1,4.1,4.1,2.1))
+
+```
+
+## Effect of varying the number of counts
+
+```{r,count_effect}
+
+count_analysis <- lapply( seq(10,60,10), function(COUNTS) {
+  res <- mclapply(1:100, function(seed) {
+    prioritisation_test(seed=seed*100, N_REPS=10, SUM_COUNT=COUNTS*1e6, VARIANCE=0.35)
+  } )
+  out <- do.call(rbind, res)
+  return(out)
+} )
+
+lapply(count_analysis, summary)
+
+names(count_analysis) <- seq(10,60,10)
+count_analysis_tbl <- do.call(rbind,lapply(count_analysis,colMeans))
+
+count_analysis_tbl %>%
+  kbl(caption="Effect of the number of counts") %>%
+  kable_paper("hover", full_width = F)
+
+```
+
+
+## Effect of number of replicates
+
+```{r,nreps_effect}
+
+samplesize_analysis <- lapply( seq(2,10,1), function(N_REPS) {
+  res <- mclapply(1:100, function(seed) {
+    prioritisation_test(seed=seed*100, N_REPS=N_REPS, SUM_COUNT=20e6, VARIANCE=0.35)
+  } )
+  out <- do.call(rbind, res)
+  return(out)
+} )
+
+lapply(samplesize_analysis, summary)
+
+names(samplesize_analysis) <- seq(2,10,1)
+samplesize_analysis_tbl <- do.call(rbind,lapply(samplesize_analysis,colMeans))
+
+samplesize_analysis_tbl %>%
+  kbl(caption="Effect of the number of replicates") %>%
+  kable_paper("hover", full_width = F)
+
+```
+
+## Effect of variation
+
+```{r,variation_effect}
+
+variation_analysis <- lapply( c(0.05,0.15,0.25,0.35,0.45,0.55,0.65), function(VARIANCE) {
+  res <- mclapply(1:100, function(seed) {
+    prioritisation_test(seed=seed*100, N_REPS=5, SUM_COUNT=20e6, VARIANCE=VARIANCE)
+  }, mc.cores=10)
+  out <- do.call(rbind, res)
+  return(out)
+} )
+
+lapply(variation_analysis, summary)
+
+names(variation_analysis) <- c(0.05,0.15,0.25,0.35,0.45,0.55,0.65)
+variation_analysis_tbl <- do.call(rbind,lapply(variation_analysis,colMeans))
+
+variation_analysis_tbl %>%
+  kbl(caption="Effect of the variance") %>%
+  kable_paper("hover", full_width = F)
+
+variation_analysis_tbl[,c(2,5,8,11)]
+variation_analysis_tbl[,c(3,6,9,12)]
+variation_analysis_tbl[,c(4,7,10,13)]
+
+
 
 ## Session
 
 ```{r,session}
 
-save.image("simpw.Rdata")
+save.image("prioritisation.Rdata")
 
 sessionInfo()
 
